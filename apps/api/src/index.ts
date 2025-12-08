@@ -27,10 +27,32 @@ const app = new Hono();
 
 // Middleware
 app.use("*", logger());
+
+// CORS configuration - supports both development and production
+const getAllowedOrigins = () => {
+  if (env.NODE_ENV === "production") {
+    // Production: only allow configured frontend URL
+    const frontendUrl = process.env.FRONTEND_URL;
+    if (!frontendUrl) {
+      console.warn("⚠️  FRONTEND_URL not set in production, CORS may block requests");
+      return [];
+    }
+    return [frontendUrl];
+  }
+  // Development: allow local Vite dev server
+  return ["http://localhost:5173", "http://localhost:5174"];
+};
+
 app.use(
   "*",
   cors({
-    origin: ["http://localhost:5173", "http://localhost:5174"], // Vite dev server
+    origin: (origin) => {
+      // Allow requests with no origin (like mobile apps or Postman)
+      if (!origin) return true;
+
+      const allowedOrigins = getAllowedOrigins();
+      return allowedOrigins.includes(origin);
+    },
     credentials: true,
   }),
 );

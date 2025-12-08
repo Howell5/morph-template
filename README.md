@@ -333,6 +333,152 @@ pnpm build
 # Or restart your IDE/TypeScript server
 ```
 
+## 🚀 Production Deployment
+
+<details>
+<summary><strong>📦 Deploy to Zeabur (Recommended)</strong></summary>
+
+<br>
+
+[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com)
+
+Zeabur provides a one-stop solution for deploying the entire stack (Database + API + Web) with automatic HTTPS and zero configuration.
+
+### Why Zeabur?
+
+- ✅ **All-in-One Platform**: Database, Backend, and Frontend in one place
+- ✅ **China-Friendly**: Fast access for users in China
+- ✅ **Monorepo Native**: Built-in support for pnpm workspaces
+- ✅ **Cost-Effective**: ~$10/month for the full stack
+- ✅ **Auto HTTPS**: Free SSL certificates
+- ✅ **Internal Networking**: Services communicate over private network
+
+### Quick Deploy Steps
+
+#### 1. Prerequisites
+
+- A Zeabur account ([sign up here](https://zeabur.com))
+- Your GitHub repository forked or cloned
+
+#### 2. Create a New Project
+
+1. Log in to [Zeabur Dashboard](https://dash.zeabur.com)
+2. Click "Create Project"
+3. Connect your GitHub repository
+
+#### 3. Add PostgreSQL Service
+
+1. In your project, click "Create Service"
+2. Select "PostgreSQL" from the service catalog
+3. Zeabur will automatically provision and start the database
+4. Copy the connection string or use `${postgres.DATABASE_URL}` for variable reference
+
+#### 4. Deploy API Service
+
+1. Click "Create Service" → "Git"
+2. Select your repository and the `apps/api` directory
+3. Configure environment variables:
+   ```bash
+   DATABASE_URL=${postgres.DATABASE_URL}
+   BETTER_AUTH_SECRET=your-secret-32-characters-minimum
+   BETTER_AUTH_URL=https://your-api-domain.zeabur.app
+   NODE_ENV=production
+   PORT=3000
+   FRONTEND_URL=https://your-web-domain.zeabur.app
+   ```
+4. Click "Deploy"
+
+#### 5. Run Database Migrations
+
+From your local machine:
+
+```bash
+# Set the production database URL
+export DATABASE_URL="your-zeabur-postgres-url"
+
+# Run migrations
+cd apps/api
+pnpm drizzle-kit push
+```
+
+Or use Zeabur's Console:
+
+1. Open your API service
+2. Go to "Console" tab
+3. Run: `cd apps/api && pnpm drizzle-kit push`
+
+#### 6. Deploy Web Service
+
+1. Click "Create Service" → "Git"
+2. Select your repository and the `apps/web` directory
+3. Configure environment variables:
+   ```bash
+   VITE_API_URL=https://your-api-domain.zeabur.app
+   ```
+4. Click "Deploy"
+
+#### 7. Custom Domains (Optional)
+
+For each service:
+
+1. Go to service "Settings" → "Domain"
+2. Add your custom domain:
+   - API: `api.yourdomain.com`
+   - Web: `yourdomain.com`
+3. Configure DNS as instructed
+4. HTTPS is automatically configured
+
+### Environment Variables Reference
+
+**API Service:**
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `${postgres.DATABASE_URL}` |
+| `BETTER_AUTH_SECRET` | Auth encryption key (min 32 chars) | Generate with: `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | Your API URL | `https://api.yourdomain.com` |
+| `NODE_ENV` | Environment | `production` |
+| `FRONTEND_URL` | Your web URL for CORS | `https://yourdomain.com` |
+
+**Web Service:**
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `VITE_API_URL` | Backend API URL | `https://api.yourdomain.com` |
+
+### Monitoring & Logs
+
+Zeabur provides built-in:
+
+- **Real-time Logs**: View application logs in the dashboard
+- **Resource Monitoring**: CPU, memory, and network usage
+- **Auto Restart**: Automatic recovery from crashes
+- **Deployment History**: Easy rollback to previous versions
+
+### Cost Estimate
+
+| Service | Configuration | Monthly Cost |
+|---------|--------------|--------------|
+| PostgreSQL | 1GB storage + auto backup | ~$5 |
+| API Service | 512MB RAM + 0.5 vCPU | ~$5 |
+| Web Service | Static hosting + CDN | Free |
+| **Total** | | **~$10** |
+
+### Troubleshooting
+
+**CORS Issues:**
+- Ensure `FRONTEND_URL` is set correctly in API service
+- Check that your web domain matches exactly (including https://)
+
+**Database Connection:**
+- Use `${postgres.DATABASE_URL}` to reference the internal database
+- Internal networking is faster and more secure
+
+**Build Failures:**
+- Check build logs in Zeabur dashboard
+- Ensure all dependencies are in `package.json`
+- Verify `zeabur.json` configuration
+
+</details>
+
 ## 📖 Tech Stack Documentation
 
 - [Hono](https://hono.dev/) - Web framework
