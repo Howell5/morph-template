@@ -1,57 +1,50 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { Routes, Route } from "react-router-dom";
 import { queryClient } from "./lib/query-client";
-import { PostsPage } from "./pages/posts";
-import { useSession } from "./lib/auth-client";
-import { Button } from "./components/ui/button";
-import { authClient } from "./lib/auth-client";
+import { ROUTES } from "./lib/routes";
+
+// Layouts
+import { PublicLayout } from "./layouts/public-layout";
+import { DashboardLayout } from "./layouts/dashboard-layout";
+
+// Pages
+import { LandingPage } from "./pages/landing";
+import { PricingPage } from "./pages/pricing";
+import { LoginPage } from "./pages/login";
+import { RegisterPage } from "./pages/register";
+import { DashboardPage } from "./pages/dashboard/index";
+import { SettingsPage } from "./pages/dashboard/settings";
+import { BillingPage } from "./pages/dashboard/billing";
+import { OrdersPage } from "./pages/dashboard/orders";
+import { NotFoundPage } from "./pages/not-found";
 
 function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main>
-          <PostsPage />
-        </main>
-      </div>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  );
-}
+	return (
+		<QueryClientProvider client={queryClient}>
+			<Routes>
+				{/* Public routes */}
+				<Route element={<PublicLayout />}>
+					<Route path={ROUTES.HOME} element={<LandingPage />} />
+					<Route path={ROUTES.PRICING} element={<PricingPage />} />
+					<Route path={ROUTES.LOGIN} element={<LoginPage />} />
+					<Route path={ROUTES.REGISTER} element={<RegisterPage />} />
+				</Route>
 
-function Header() {
-  const { data: session, isPending } = useSession();
+				{/* Protected routes */}
+				<Route element={<DashboardLayout />}>
+					<Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
+					<Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
+					<Route path={ROUTES.BILLING} element={<BillingPage />} />
+					<Route path={ROUTES.ORDERS} element={<OrdersPage />} />
+				</Route>
 
-  const handleSignOut = async () => {
-    await authClient.signOut();
-  };
-
-  return (
-    <header className="border-b">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold">Morph Template</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          {isPending ? (
-            <span className="text-sm text-muted-foreground">Loading...</span>
-          ) : session ? (
-            <>
-              <span className="text-sm">Welcome, {session.user.name}</span>
-              <Button variant="outline" size="sm" onClick={handleSignOut}>
-                Sign Out
-              </Button>
-            </>
-          ) : (
-            <Button variant="outline" size="sm" onClick={() => alert("Sign in form coming soon!")}>
-              Sign In
-            </Button>
-          )}
-        </div>
-      </div>
-    </header>
-  );
+				{/* 404 */}
+				<Route path="*" element={<NotFoundPage />} />
+			</Routes>
+			<ReactQueryDevtools initialIsOpen={false} />
+		</QueryClientProvider>
+	);
 }
 
 export default App;
