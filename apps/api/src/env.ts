@@ -6,6 +6,8 @@ const envSchema = z.object({
   BETTER_AUTH_URL: z.string().url(),
   PORT: z.coerce.number().default(3000),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  STRIPE_SECRET_KEY: z.string().min(1, "STRIPE_SECRET_KEY is required"),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1, "STRIPE_WEBHOOK_SECRET is required"),
 });
 
 export type Env = z.infer<typeof envSchema>;

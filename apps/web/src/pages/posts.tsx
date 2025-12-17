@@ -17,7 +17,7 @@ export function PostsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["posts"],
     queryFn: async () => {
-      const response = await api.api.posts.$get({
+      const response = await (api as any).api.posts.$get({
         query: { page: "1", limit: "10" },
       });
       return response.json();
@@ -57,7 +57,7 @@ export function PostsPage() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {data?.posts.map((post) => (
+          {data?.posts.map((post: any) => (
             <Card key={post.id}>
               <CardHeader>
                 <CardTitle>{post.title}</CardTitle>

@@ -1,6 +1,5 @@
 import type { ApiError } from "@repo/shared";
 import type { Context } from "hono";
-import type { StatusCode } from "hono/utils/http-status";
 
 /**
  * Standard error response helper
@@ -8,7 +7,7 @@ import type { StatusCode } from "hono/utils/http-status";
  */
 export function errorResponse(
   c: Context,
-  status: StatusCode,
+  status: number,
   message: string,
   code?: string,
   issues?: any[],
@@ -18,5 +17,5 @@ export function errorResponse(
     ...(code && { code }),
     ...(issues && { issues }),
   };
-  return c.json(error, status);
+  return c.json(error, status as any);
 }

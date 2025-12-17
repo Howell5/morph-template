@@ -17,6 +17,10 @@ import { logger } from 'hono/logger'
 import { auth } from './auth'
 import { validateEnv } from './env'
 import postsRoute from './routes/posts'
+import checkoutRoute from './routes/checkout'
+import ordersRoute from './routes/orders'
+import webhooksRoute from './routes/webhooks'
+import userRoute from './routes/user'
 
 const env = validateEnv()
 
@@ -74,6 +78,10 @@ app.on(['POST', 'GET'], '/api/auth/**', (c) => {
 
 // Mount API routes
 app.route('/api/posts', postsRoute)
+app.route('/api/checkout', checkoutRoute)
+app.route('/api/orders', ordersRoute)
+app.route('/api/webhooks', webhooksRoute)
+app.route('/api/user', userRoute)
 
 /**
  * Export the app type for frontend type inference
