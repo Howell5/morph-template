@@ -55,14 +55,9 @@ export function PublicHeader({ transparent = false }: PublicHeaderProps) {
 								<Link to={ROUTES.DASHBOARD}>Dashboard</Link>
 							</Button>
 						) : (
-							<>
-								<Button variant="ghost" size="sm" asChild>
-									<Link to={ROUTES.LOGIN}>Sign In</Link>
-								</Button>
-								<Button size="sm" asChild>
-									<Link to={ROUTES.REGISTER}>Get Started</Link>
-								</Button>
-							</>
+							<Button size="sm" asChild>
+								<Link to={ROUTES.LOGIN}>Sign In</Link>
+							</Button>
 						)}
 					</div>
 
@@ -90,14 +85,9 @@ export function PublicHeader({ transparent = false }: PublicHeaderProps) {
 										<Link to={ROUTES.DASHBOARD}>Dashboard</Link>
 									</Button>
 								) : (
-									<>
-										<Button variant="outline" asChild>
-											<Link to={ROUTES.LOGIN}>Sign In</Link>
-										</Button>
-										<Button asChild>
-											<Link to={ROUTES.REGISTER}>Get Started</Link>
-										</Button>
-									</>
+									<Button asChild>
+										<Link to={ROUTES.LOGIN}>Sign In</Link>
+									</Button>
 								)}
 							</nav>
 						</SheetContent>

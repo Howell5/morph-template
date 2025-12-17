@@ -94,7 +94,7 @@ export function PricingSection() {
 									className="mt-8 w-full"
 									variant={pkg.popular ? "default" : "outline"}
 								>
-									<Link to={ROUTES.REGISTER}>Get Started</Link>
+									<Link to={ROUTES.LOGIN}>Get Started</Link>
 								</Button>
 							</div>
 						</motion.div>

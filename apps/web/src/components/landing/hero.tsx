@@ -44,7 +44,7 @@ export function Hero() {
 						transition={{ duration: 0.5, delay: 0.2 }}
 					>
 						<Button asChild size="lg" className="min-w-[160px]">
-							<Link to={ROUTES.REGISTER}>Get Started</Link>
+							<Link to={ROUTES.LOGIN}>Get Started</Link>
 						</Button>
 						<Button asChild variant="outline" size="lg" className="min-w-[160px]">
 							<Link to={ROUTES.PRICING}>View Pricing</Link>

@@ -23,7 +23,7 @@ export function CTASection() {
 					</p>
 					<div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
 						<Button asChild size="lg" className="min-w-[160px]">
-							<Link to={ROUTES.REGISTER}>Start Building</Link>
+							<Link to={ROUTES.LOGIN}>Start Building</Link>
 						</Button>
 						<Button asChild variant="outline" size="lg" className="min-w-[160px]">
 							<Link to={ROUTES.LOGIN}>Sign In</Link>
