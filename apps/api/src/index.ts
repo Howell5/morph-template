@@ -6,8 +6,8 @@ import dotenv from 'dotenv'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Load .env from project root
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') })
+// Load .env from apps/api directory
+dotenv.config({ path: path.resolve(__dirname, '../.env') })
 
 // Now import other modules
 import { serve } from '@hono/node-server'
