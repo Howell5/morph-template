@@ -8,7 +8,7 @@ A modern, type-safe full-stack monorepo template featuring end-to-end type safet
 
 - **🔒 End-to-End Type Safety**: Hono's `AppType` + `hono/client` for seamless frontend-backend type inference
 - **📦 Monorepo Architecture**: pnpm workspaces + Turborepo for efficient builds and caching
-- **🔐 Built-in Authentication**: Better Auth with email/password and session management
+- **🔐 Built-in Authentication**: Better Auth with Google & GitHub OAuth (social login only)
 - **💳 Credits & Payments**: Stripe integration with checkout sessions, webhooks, and order history
 - **🗄️ Modern Database**: PostgreSQL + Drizzle ORM with type-safe queries
 - **⚡ Fast Development**: Vite + Hot Module Replacement + TypeScript strict mode
@@ -71,22 +71,51 @@ pnpm install
 # Copy environment files
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
-
-# Edit apps/api/.env and set your values:
-# - DATABASE_URL: PostgreSQL connection string
-# - BETTER_AUTH_SECRET: Generate a secure random string (min 32 chars)
-# - STRIPE_SECRET_KEY: (optional in dev) Get from Stripe Dashboard
-# - STRIPE_WEBHOOK_SECRET: (optional in dev) Get from Stripe CLI
 ```
+
+Edit `apps/api/.env` with your values:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `BETTER_AUTH_SECRET` | Yes | Secure random string (min 32 chars) |
+| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |
+| `GITHUB_CLIENT_ID` | Yes | GitHub OAuth client ID |
+| `GITHUB_CLIENT_SECRET` | Yes | GitHub OAuth client secret |
+| `STRIPE_SECRET_KEY` | No | Stripe API key (for payments) |
+| `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook secret |
 
 Generate a secure secret:
 ```bash
-# On macOS/Linux
 openssl rand -base64 32
-
-# Or use Node.js
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
+
+### 2.1 Configure OAuth Providers
+
+This template uses **social login only** (no email/password). You must configure both Google and GitHub OAuth.
+
+#### Google OAuth
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Create a new project or select existing
+3. Enable "Google+ API" or "Google Identity"
+4. Create **OAuth 2.0 Client ID** (Web application)
+5. Add Authorized redirect URI:
+   - Development: `http://localhost:3000/api/auth/callback/google`
+   - Production: `https://your-api-domain.com/api/auth/callback/google`
+6. Copy Client ID and Client Secret to `.env`
+
+#### GitHub OAuth
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Click **New OAuth App**
+3. Fill in:
+   - Application name: Your app name
+   - Homepage URL: `http://localhost:5173` (or production URL)
+   - Authorization callback URL: `http://localhost:3000/api/auth/callback/github`
+4. Copy Client ID and generate Client Secret
+5. Add to `.env`
 
 ### 3. Start Database
 
