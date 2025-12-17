@@ -69,10 +69,10 @@ pnpm install
 
 ```bash
 # Copy environment files
-cp .env.example .env
+cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 
-# Edit .env and set your values:
+# Edit apps/api/.env and set your values:
 # - DATABASE_URL: PostgreSQL connection string
 # - BETTER_AUTH_SECRET: Generate a secure random string (min 32 chars)
 # - STRIPE_SECRET_KEY: (optional in dev) Get from Stripe Dashboard
@@ -275,7 +275,7 @@ stripe login
 # Forward webhooks to your local server
 stripe listen --forward-to localhost:3000/api/webhooks/stripe
 
-# Copy the webhook signing secret (whsec_...) to your .env
+# Copy the webhook signing secret (whsec_...) to apps/api/.env
 ```
 
 ### Example: Purchase Credits

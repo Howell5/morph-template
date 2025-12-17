@@ -309,7 +309,7 @@ The custom `apiFetch` wrapper automatically:
 
 ## Environment Variables
 
-### Backend (.env at root)
+### Backend (apps/api/.env)
 ```bash
 DATABASE_URL=postgresql://user:password@localhost:5432/morphdb
 BETTER_AUTH_SECRET=<32+ character secret>
