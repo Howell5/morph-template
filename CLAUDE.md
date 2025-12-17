@@ -9,6 +9,7 @@ Morph Template is a full-stack TypeScript monorepo featuring end-to-end type saf
 **Key Technology Stack:**
 - **Backend**: Hono (web framework) + Drizzle ORM + PostgreSQL + Better Auth
 - **Frontend**: React + Vite + TanStack Query + shadcn/ui + Tailwind CSS
+- **Payments**: Stripe (Checkout + Webhooks)
 - **Monorepo**: pnpm workspaces + Turborepo
 - **Tooling**: Biome (linting/formatting), TypeScript strict mode
 
@@ -100,6 +101,47 @@ Better Auth provides session-based authentication:
 
 **Important**: The custom `apiFetch` wrapper in `apps/web/src/lib/api.ts` ensures `credentials: 'include'` is set on all requests.
 
+### Credits & Payments System
+
+The template includes a complete credits-based payment system using Stripe:
+
+**Credit Packages** (`packages/shared/src/config/pricing.ts`):
+- Hardcoded pricing tiers (Starter, Professional, Enterprise)
+- Shared between backend and frontend via `@repo/shared`
+- Helper functions: `getCreditPackage()`, `formatPrice()`
+
+**Database**:
+- `user.credits` - Integer field tracking user's credit balance
+- `orders` table - Tracks all credit purchase transactions
+
+**API Routes**:
+- `POST /api/checkout` - Creates Stripe Checkout session for purchasing credits
+- `GET /api/orders` - Returns user's order history
+- `POST /api/webhooks/stripe` - Handles Stripe webhook events
+
+**Stripe Webhook Flow** (`apps/api/src/routes/webhooks.ts`):
+1. Verify webhook signature using `STRIPE_WEBHOOK_SECRET`
+2. Handle `checkout.session.completed` event
+3. Use database transaction for atomicity
+4. Idempotency check via `stripeSessionId` to prevent duplicate processing
+5. Create order record and increment user credits
+
+**Configuration** (optional in development):
+```bash
+STRIPE_SECRET_KEY=sk_test_...      # Stripe secret key
+STRIPE_WEBHOOK_SECRET=whsec_...    # Webhook signing secret
+```
+
+**Example: Creating Checkout Session**:
+```typescript
+// Frontend
+const response = await api.api.checkout.$post({
+  json: { packageId: 'professional' }
+});
+const { checkoutUrl } = await response.json();
+window.location.href = checkoutUrl;  // Redirect to Stripe
+```
+
 ## Project Structure
 
 ```
@@ -107,12 +149,18 @@ morph-template/
 ├── apps/
 │   ├── api/                    # Backend application
 │   │   ├── src/
-│   │   │   ├── routes/         # API route handlers (e.g., posts.ts)
+│   │   │   ├── routes/
+│   │   │   │   ├── posts.ts    # Posts CRUD
+│   │   │   │   ├── checkout.ts # Stripe checkout session creation
+│   │   │   │   ├── orders.ts   # User order history
+│   │   │   │   ├── webhooks.ts # Stripe webhook handler
+│   │   │   │   └── user.ts     # User profile & credits
 │   │   │   ├── db/
-│   │   │   │   ├── schema.ts   # Drizzle database schema
+│   │   │   │   ├── schema.ts   # Drizzle schema (user, orders, posts)
 │   │   │   │   └── index.ts    # Database connection
 │   │   │   ├── lib/
-│   │   │   │   └── response.ts # Standard error response helper
+│   │   │   │   ├── response.ts # Standard error response helper
+│   │   │   │   └── stripe.ts   # Stripe client singleton
 │   │   │   ├── auth.ts         # Better Auth configuration
 │   │   │   ├── env.ts          # Environment variable validation
 │   │   │   └── index.ts        # Main app, EXPORTS AppType
@@ -125,7 +173,7 @@ morph-template/
 │       │   │   ├── auth-client.ts  # Better Auth client
 │       │   │   ├── query-client.ts # TanStack Query setup
 │       │   │   └── utils.ts    # Utilities (cn helper)
-│       │   ├── pages/          # Page components
+│       │   ├── pages/          # Page components (orders.tsx, etc.)
 │       │   ├── env.ts          # Frontend env validation
 │       │   └── main.tsx        # React entry point
 │       └── vite.config.ts
@@ -134,7 +182,10 @@ morph-template/
         └── src/
             ├── schemas/
             │   ├── common.ts   # ApiError, Pagination schemas
-            │   └── post.ts     # Post-related schemas
+            │   ├── post.ts     # Post-related schemas
+            │   └── order.ts    # Order schemas (checkout, order status)
+            ├── config/
+            │   └── pricing.ts  # Credit packages & pricing config
             └── index.ts        # Re-exports all schemas
 ```
 
@@ -266,6 +317,10 @@ BETTER_AUTH_URL=http://localhost:3000
 NODE_ENV=development
 PORT=3000
 FRONTEND_URL=http://localhost:5173  # For CORS
+
+# Stripe (optional in development, required in production)
+STRIPE_SECRET_KEY=sk_test_...       # Get from Stripe Dashboard
+STRIPE_WEBHOOK_SECRET=whsec_...     # Get from Stripe CLI or Dashboard
 ```
 
 ### Frontend (apps/web/.env)

@@ -9,6 +9,7 @@ A modern, type-safe full-stack monorepo template featuring end-to-end type safet
 - **🔒 End-to-End Type Safety**: Hono's `AppType` + `hono/client` for seamless frontend-backend type inference
 - **📦 Monorepo Architecture**: pnpm workspaces + Turborepo for efficient builds and caching
 - **🔐 Built-in Authentication**: Better Auth with email/password and session management
+- **💳 Credits & Payments**: Stripe integration with checkout sessions, webhooks, and order history
 - **🗄️ Modern Database**: PostgreSQL + Drizzle ORM with type-safe queries
 - **⚡ Fast Development**: Vite + Hot Module Replacement + TypeScript strict mode
 - **🎨 Beautiful UI**: shadcn/ui + Tailwind CSS for rapid UI development
@@ -21,11 +22,11 @@ A modern, type-safe full-stack monorepo template featuring end-to-end type safet
 ```
 morph-template/
 ├── apps/
-│   ├── api/              # Backend (Hono + Drizzle + Better Auth)
+│   ├── api/              # Backend (Hono + Drizzle + Better Auth + Stripe)
 │   │   ├── src/
 │   │   │   ├── db/       # Database schemas and connection
-│   │   │   ├── routes/   # API routes (e.g., posts.ts)
-│   │   │   ├── lib/      # Utilities (response helpers)
+│   │   │   ├── routes/   # API routes (posts, checkout, orders, webhooks)
+│   │   │   ├── lib/      # Utilities (response helpers, stripe client)
 │   │   │   ├── auth.ts   # Better Auth configuration
 │   │   │   ├── env.ts    # Environment variable validation
 │   │   │   └── index.ts  # Main app (exports AppType)
@@ -34,14 +35,15 @@ morph-template/
 │       ├── src/
 │       │   ├── components/  # UI components (shadcn/ui)
 │       │   ├── lib/         # API client, auth client, utils
-│       │   ├── pages/       # Page components
+│       │   ├── pages/       # Page components (orders, etc.)
 │       │   ├── env.ts       # Frontend env validation
 │       │   └── main.tsx
 │       └── vite.config.ts
 └── packages/
     └── shared/           # Shared Zod schemas and types
         └── src/
-            └── schemas/  # Validation schemas (posts, common)
+            ├── schemas/  # Validation schemas (posts, orders, common)
+            └── config/   # Credit packages & pricing
 ```
 
 ## 🚀 Quick Start
@@ -73,6 +75,8 @@ cp apps/web/.env.example apps/web/.env
 # Edit .env and set your values:
 # - DATABASE_URL: PostgreSQL connection string
 # - BETTER_AUTH_SECRET: Generate a secure random string (min 32 chars)
+# - STRIPE_SECRET_KEY: (optional in dev) Get from Stripe Dashboard
+# - STRIPE_WEBHOOK_SECRET: (optional in dev) Get from Stripe CLI
 ```
 
 Generate a secure secret:
@@ -226,6 +230,81 @@ function Component() {
   return <div>Welcome, {session.user.name}!</div>;
 }
 ```
+
+## 💳 Credits & Payments
+
+This template includes a complete credits-based payment system using Stripe.
+
+### Credit Packages
+
+Defined in `packages/shared/src/config/pricing.ts`:
+- **Starter**: 100 credits for $9.99
+- **Professional**: 500 credits for $39.99 (most popular)
+- **Enterprise**: 1500 credits for $99.99
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/checkout` | POST | Create Stripe Checkout session |
+| `/api/orders` | GET | Get user's order history |
+| `/api/webhooks/stripe` | POST | Handle Stripe webhook events |
+| `/api/user/credits` | GET | Get user's current credit balance |
+
+### Setting Up Stripe
+
+1. Create a [Stripe account](https://dashboard.stripe.com/register)
+2. Get your API keys from the Dashboard
+3. Set environment variables:
+```bash
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+### Local Webhook Testing
+
+Use the [Stripe CLI](https://stripe.com/docs/stripe-cli) to forward webhooks locally:
+
+```bash
+# Install Stripe CLI
+brew install stripe/stripe-cli/stripe
+
+# Login to your Stripe account
+stripe login
+
+# Forward webhooks to your local server
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+
+# Copy the webhook signing secret (whsec_...) to your .env
+```
+
+### Example: Purchase Credits
+
+```typescript
+// Frontend: Create checkout session
+const { mutate } = useMutation({
+  mutationFn: async (packageId: string) => {
+    const res = await api.api.checkout.$post({
+      json: { packageId }
+    });
+    const { checkoutUrl } = await res.json();
+    window.location.href = checkoutUrl; // Redirect to Stripe
+  }
+});
+
+// Trigger purchase
+mutate('professional');
+```
+
+### Webhook Flow
+
+1. User completes Stripe Checkout
+2. Stripe sends `checkout.session.completed` webhook
+3. Backend verifies signature and processes payment:
+   - Creates order record in database
+   - Increments user's credit balance
+   - Uses transaction for atomicity
+   - Idempotency check prevents duplicate processing
 
 ## 🗄️ Database Management
 
@@ -438,6 +517,8 @@ For each service:
 | `BETTER_AUTH_URL` | Your API URL | `https://api.yourdomain.com` |
 | `NODE_ENV` | Environment | `production` |
 | `FRONTEND_URL` | Your web URL for CORS | `https://yourdomain.com` |
+| `STRIPE_SECRET_KEY` | Stripe secret key | `sk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | `whsec_...` |
 
 **Web Service:**
 | Variable | Description | Example |
@@ -484,6 +565,7 @@ Zeabur provides built-in:
 - [Hono](https://hono.dev/) - Web framework
 - [Drizzle ORM](https://orm.drizzle.team/) - Database ORM
 - [Better Auth](https://www.better-auth.com/) - Authentication
+- [Stripe](https://stripe.com/docs) - Payment processing
 - [TanStack Query](https://tanstack.com/query) - Data fetching
 - [shadcn/ui](https://ui.shadcn.com/) - UI components
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
