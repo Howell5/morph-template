@@ -2,11 +2,8 @@ import { zValidator } from "@hono/zod-validator";
 import { createCheckoutSchema, getCreditPackage } from "@repo/shared";
 import { Hono } from "hono";
 import { auth } from "../auth";
-import { validateEnv } from "../env";
 import { getStripe } from "../lib/stripe";
 import { errorResponse } from "../lib/response";
-
-const env = validateEnv();
 
 const checkoutRoute = new Hono()
 	/**
@@ -14,6 +11,15 @@ const checkoutRoute = new Hono()
 	 * Create a Stripe Checkout session for purchasing credits
 	 */
 	.post("/", zValidator("json", createCheckoutSchema), async (c) => {
+		// Check Stripe configuration
+		if (!process.env.STRIPE_SECRET_KEY) {
+			return errorResponse(
+				c,
+				503,
+				"Stripe is not configured. Please set STRIPE_SECRET_KEY environment variable.",
+			);
+		}
+
 		// Authentication check
 		const session = await auth.api.getSession({ headers: c.req.raw.headers });
 		if (!session) {
@@ -30,6 +36,7 @@ const checkoutRoute = new Hono()
 
 		try {
 			const stripe = getStripe();
+			const BETTER_AUTH_URL = process.env.BETTER_AUTH_URL || "http://localhost:3000";
 
 			// Create Stripe Checkout Session
 			const checkoutSession = await stripe.checkout.sessions.create({
@@ -48,8 +55,8 @@ const checkoutRoute = new Hono()
 					},
 				],
 				mode: "payment",
-				success_url: `${env.BETTER_AUTH_URL.replace(/\/$/, "")}/orders?success=true`,
-				cancel_url: `${env.BETTER_AUTH_URL.replace(/\/$/, "")}/pricing?canceled=true`,
+				success_url: `${BETTER_AUTH_URL.replace(/\/$/, "")}/orders?success=true`,
+				cancel_url: `${BETTER_AUTH_URL.replace(/\/$/, "")}/pricing?canceled=true`,
 				client_reference_id: session.user.id,
 				metadata: {
 					userId: session.user.id,

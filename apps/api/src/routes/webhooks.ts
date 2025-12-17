@@ -4,10 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { orders, user } from "../db/schema";
 import { getStripe } from "../lib/stripe";
-import { validateEnv } from "../env";
 import { errorResponse } from "../lib/response";
-
-const env = validateEnv();
 
 const webhooksRoute = new Hono()
 	/**
@@ -16,6 +13,16 @@ const webhooksRoute = new Hono()
 	 * IMPORTANT: This endpoint must receive raw body for signature verification
 	 */
 	.post("/stripe", async (c) => {
+		// Check Stripe configuration
+		if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+			console.error("⚠️  Stripe webhook received but Stripe is not configured");
+			return errorResponse(
+				c,
+				503,
+				"Stripe is not configured. Please set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET environment variables.",
+			);
+		}
+
 		const stripe = getStripe();
 		const signature = c.req.header("stripe-signature");
 
@@ -33,7 +40,7 @@ const webhooksRoute = new Hono()
 			event = stripe.webhooks.constructEvent(
 				rawBody,
 				signature,
-				env.STRIPE_WEBHOOK_SECRET,
+				process.env.STRIPE_WEBHOOK_SECRET,
 			);
 		} catch (error) {
 			console.error("Webhook signature verification failed:", error);
