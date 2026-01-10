@@ -45,6 +45,30 @@ pnpm build         # Build frontend for production
 
 ## Architecture Principles
 
+### Unified API Response Format
+
+All API endpoints return a consistent response structure:
+
+**Success Response:**
+```typescript
+{
+  success: true,
+  data: T  // The actual response data
+}
+```
+
+**Error Response:**
+```typescript
+{
+  success: false,
+  error: {
+    message: string,
+    code?: string,      // e.g., "UNAUTHORIZED", "NOT_FOUND"
+    issues?: unknown[]  // For Zod validation errors
+  }
+}
+```
+
 ### RPC-Style Type Safety
 
 The core architecture relies on Hono's `AppType` export for end-to-end type safety:
@@ -54,21 +78,45 @@ The core architecture relies on Hono's `AppType` export for end-to-end type safe
 export type AppType = typeof app;
 ```
 
-2. **Frontend imports and uses it** (`apps/web/src/lib/api.ts`):
+2. **Pre-compiled RPC client** (`apps/api/src/client.ts`):
 ```typescript
-import type { AppType } from "@repo/api";
-import { hc } from "hono/client";
-
-export const api = hc<AppType>(env.VITE_API_URL, {
-  fetch: apiFetch,
-});
+// Types are pre-computed at build time for better IDE performance
+export type ApiClient = ReturnType<typeof hc<typeof app>>;
+export const hcWithType = (...args: Parameters<typeof hc>): ApiClient =>
+  hc<typeof app>(...args);
 ```
 
-3. **All API calls are fully typed**:
+3. **Frontend uses pre-compiled client** (`apps/web/src/lib/api.ts`):
+```typescript
+import { hcWithType } from "@repo/api/client";
+
+export const api = hcWithType(env.VITE_API_URL, {
+  fetch: apiFetch,
+});
+
+// Helper type to extract data from ApiSuccess<T>
+export type ExtractData<T> = T extends ApiSuccess<infer D> ? D : never;
+
+// Helper function to unwrap API responses
+export async function unwrap<T extends ApiSuccess<unknown>>(
+  responsePromise: Promise<Response>,
+): Promise<ExtractData<T>> {
+  const response = await responsePromise;
+  const json = await response.json();
+  if (!json.success) {
+    throw new Error(json.error?.message || "Unknown error");
+  }
+  return json.data;
+}
+```
+
+4. **All API calls are fully typed**:
 ```typescript
 // Frontend automatically knows request/response types
 const response = await api.api.posts.$get();
-const data = await response.json(); // Typed as Post[]
+const json = await response.json();
+// json is typed as { success: true, data: { posts: Post[], pagination: {...} } }
+const posts = json.data.posts;
 ```
 
 ### Shared Validation Schemas
@@ -138,8 +186,10 @@ STRIPE_WEBHOOK_SECRET=whsec_...    # Webhook signing secret
 const response = await api.api.checkout.$post({
   json: { packageId: 'professional' }
 });
-const { checkoutUrl } = await response.json();
-window.location.href = checkoutUrl;  // Redirect to Stripe
+const json = await response.json();
+if (json.success) {
+  window.location.href = json.data.checkoutUrl;  // Redirect to Stripe
+}
 ```
 
 ## Project Structure
@@ -157,11 +207,12 @@ morph-template/
 │   │   │   │   └── user.ts     # User profile & credits
 │   │   │   ├── db/
 │   │   │   │   ├── schema.ts   # Drizzle schema (user, orders, posts)
-│   │   │   │   └── index.ts    # Database connection
+│   │   │   │   └── index.ts    # Database connection + health check
 │   │   │   ├── lib/
-│   │   │   │   ├── response.ts # Standard error response helper
+│   │   │   │   ├── response.ts # ok(), err(), errors.* helpers
 │   │   │   │   └── stripe.ts   # Stripe client singleton
 │   │   │   ├── auth.ts         # Better Auth configuration
+│   │   │   ├── client.ts       # Pre-compiled RPC client export
 │   │   │   ├── env.ts          # Environment variable validation
 │   │   │   └── index.ts        # Main app, EXPORTS AppType
 │   │   └── drizzle.config.ts   # Drizzle Kit configuration
@@ -169,7 +220,7 @@ morph-template/
 │       ├── src/
 │       │   ├── components/ui/  # shadcn/ui components
 │       │   ├── lib/
-│       │   │   ├── api.ts      # Typed Hono client (IMPORTS AppType)
+│       │   │   ├── api.ts      # Typed Hono client + ExtractData + unwrap
 │       │   │   ├── auth-client.ts  # Better Auth client
 │       │   │   ├── query-client.ts # TanStack Query setup
 │       │   │   └── utils.ts    # Utilities (cn helper)
@@ -181,7 +232,7 @@ morph-template/
     └── shared/                 # Shared schemas and types
         └── src/
             ├── schemas/
-            │   ├── common.ts   # ApiError, Pagination schemas
+            │   ├── common.ts   # ApiSuccess, ApiFailure, ApiResponse types
             │   ├── post.ts     # Post-related schemas
             │   └── order.ts    # Order schemas (checkout, order status)
             ├── config/
@@ -212,7 +263,9 @@ export const comments = pgTable('comments', {
   postId: uuid('post_id').references(() => posts.id),
   content: text('content').notNull(),
   userId: text('user_id').references(() => user.id),
-  createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { mode: 'date', withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // Run: pnpm db:push
@@ -224,16 +277,30 @@ export const comments = pgTable('comments', {
 import { zValidator } from "@hono/zod-validator";
 import { createCommentSchema } from "@repo/shared";
 import { Hono } from "hono";
+import { auth } from "../auth";
+import { db } from "../db";
+import { comments } from "../db/schema";
+import { errors, ok } from "../lib/response";
 
 const commentsRoute = new Hono()
   .post('/', zValidator('json', createCommentSchema), async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
-      return errorResponse(c, 401, 'Unauthorized');
+      return errors.unauthorized(c);
     }
 
     const data = c.req.valid('json');
-    // ... implementation
+    const [comment] = await db.insert(comments).values({
+      ...data,
+      userId: session.user.id,
+    }).returning();
+
+    return ok(c, comment, 201);
+  })
+
+  .get('/', async (c) => {
+    const allComments = await db.query.comments.findMany();
+    return ok(c, { comments: allComments });
   });
 
 export default commentsRoute;
@@ -242,19 +309,66 @@ export default commentsRoute;
 ### 4. Mount Route (apps/api/src/index.ts)
 ```typescript
 import commentsRoute from "./routes/comments";
-app.route("/api/comments", commentsRoute);
+
+// Use chained .route() calls to preserve type information
+const app = baseApp
+  .route("/api/posts", postsRoute)
+  .route("/api/comments", commentsRoute);  // Add here
 ```
 
 ### 5. Use in Frontend (apps/web)
 ```typescript
-// Frontend automatically has types available via AppType
+// Frontend automatically has types available via hcWithType
 const { mutate } = useMutation({
   mutationFn: async (data: CreateComment) => {
     const res = await api.api.comments.$post({ json: data });
-    return res.json();
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error.message);
+    return json.data;
   },
 });
 ```
+
+## API Response Helpers
+
+### Backend Response Helpers
+
+Use helpers from `apps/api/src/lib/response.ts`:
+
+```typescript
+import { ok, errors } from "../lib/response";
+
+// Success responses
+return ok(c, { posts: allPosts });           // 200
+return ok(c, newPost, 201);                  // 201 Created
+
+// Error shortcuts
+return errors.unauthorized(c);               // 401
+return errors.unauthorized(c, "Custom msg"); // 401 with custom message
+return errors.forbidden(c);                  // 403
+return errors.notFound(c, "Post not found"); // 404
+return errors.badRequest(c, "Invalid input", zodIssues); // 400
+return errors.conflict(c, "Already exists"); // 409
+return errors.tooManyRequests(c);            // 429
+return errors.internal(c);                   // 500
+return errors.serviceUnavailable(c, "Stripe not configured"); // 503
+```
+
+### API Route Design Principle
+
+**Avoid POST operations with dynamic route parameters:**
+
+```typescript
+// ❌ Bad - verbose bracket syntax in frontend
+.post("/:id/update", ...)
+// Frontend: api.api.posts[':id']['update'].$post({ param: { id } })
+
+// ✅ Good - cleaner syntax, ID in body
+.post("/update", zValidator('json', updateSchema), ...)
+// Frontend: api.api.posts.update.$post({ json: { id, ...data } })
+```
+
+GET/DELETE operations can use path parameters (RESTful conventions).
 
 ## Database Patterns
 
@@ -262,6 +376,7 @@ const { mutate } = useMutation({
 - Use Drizzle's `pgTable` for table definitions
 - Define relations with `relations()` for automatic joins
 - Better Auth manages: `user`, `session`, `account`, `verification` tables
+- **Always use `withTimezone: true`** for timestamp columns
 
 ### Development vs Production
 - **Development**: Use `pnpm db:push` (direct schema sync, no migrations)
@@ -282,30 +397,41 @@ const posts = await db.query.posts.findMany({
 const posts = await db.select().from(posts).where(eq(posts.userId, userId));
 ```
 
-## Error Handling
-
-### Backend
-Use `errorResponse()` helper from `apps/api/src/lib/response.ts`:
+### Database Health Check
 ```typescript
-if (!session) {
-  return errorResponse(c, 401, 'Unauthorized');
-}
+import { checkDatabaseHealth, closeDatabase } from "./db";
+
+// Health check endpoint uses this
+const health = await checkDatabaseHealth();
+// Returns: { healthy: boolean, error?: string }
 ```
 
-All errors follow the `ApiError` schema from `@repo/shared`:
-```typescript
-type ApiError = {
-  message: string;
-  code?: string;
-  issues?: any[]; // For Zod validation errors
-};
+## Server Features
+
+### Health Check Endpoint
+- `GET /health` - Returns `{ status: "ok" }` (200) or `{ status: "degraded" }` (503)
+- During shutdown, returns `{ status: "shutting_down" }` (503)
+- Used by load balancers and monitoring systems
+
+### Graceful Shutdown
+The server handles SIGTERM/SIGINT signals:
+1. Sets `isShuttingDown = true` (health check returns 503)
+2. Waits 5 seconds for traffic to drain
+3. Closes HTTP server
+4. Closes database connections
+5. Exits cleanly
+
+### HTTP Proxy Support
+For local development with external APIs through a proxy:
+```bash
+# In apps/api/.env
+HTTPS_PROXY=http://127.0.0.1:7890
 ```
 
-### Frontend
-The custom `apiFetch` wrapper automatically:
-- Throws on non-2xx responses
-- Parses `ApiError` format
-- TanStack Query handles errors globally via toast notifications
+### Global Error Handler
+Unhandled errors are caught and return a consistent error response:
+- Development: Full error message
+- Production: Generic "Internal server error"
 
 ## Environment Variables
 
@@ -321,6 +447,9 @@ FRONTEND_URL=http://localhost:5173  # For CORS
 # Stripe (optional in development, required in production)
 STRIPE_SECRET_KEY=sk_test_...       # Get from Stripe Dashboard
 STRIPE_WEBHOOK_SECRET=whsec_...     # Get from Stripe CLI or Dashboard
+
+# Optional: HTTP proxy for external API calls
+HTTPS_PROXY=http://127.0.0.1:7890
 ```
 
 ### Frontend (apps/web/.env)

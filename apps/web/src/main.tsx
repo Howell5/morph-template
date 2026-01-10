@@ -8,15 +8,15 @@ import { ThemeProvider } from "./providers/theme-provider";
 // Ensure root element exists
 const rootElement = document.getElementById("root");
 if (!rootElement) {
-	throw new Error("Root element not found");
+  throw new Error("Root element not found");
 }
 
 createRoot(rootElement).render(
-	<StrictMode>
-		<ThemeProvider>
-			<BrowserRouter>
-				<App />
-			</BrowserRouter>
-		</ThemeProvider>
-	</StrictMode>,
+  <StrictMode>
+    <ThemeProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ThemeProvider>
+  </StrictMode>,
 );

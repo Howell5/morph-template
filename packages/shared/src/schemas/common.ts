@@ -1,16 +1,50 @@
 import { z } from "zod";
 
 /**
- * Standard API error response structure
- * Used by backend error handlers and frontend error interceptors
+ * Unified API Response Structure
+ *
+ * All API endpoints return either:
+ * - Success: { success: true, data: T }
+ * - Error: { success: false, error: { message, code?, issues? } }
  */
-export const apiErrorSchema = z.object({
+
+/**
+ * API error details
+ */
+export const apiErrorDetailSchema = z.object({
   message: z.string(),
   code: z.string().optional(),
-  issues: z.array(z.any()).optional(), // For Zod validation errors
+  issues: z.array(z.any()).optional(),
 });
 
-export type ApiError = z.infer<typeof apiErrorSchema>;
+export type ApiErrorDetail = z.infer<typeof apiErrorDetailSchema>;
+
+/**
+ * Successful API response
+ */
+export interface ApiSuccess<T> {
+  success: true;
+  data: T;
+}
+
+/**
+ * Failed API response
+ */
+export interface ApiFailure {
+  success: false;
+  error: ApiErrorDetail;
+}
+
+/**
+ * Unified API response type
+ */
+export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
+
+/**
+ * Legacy ApiError type (for backward compatibility)
+ * @deprecated Use ApiFailure instead
+ */
+export type ApiError = ApiErrorDetail;
 
 /**
  * Pagination query parameters

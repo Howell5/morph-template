@@ -5,7 +5,7 @@ import { Hono } from "hono";
 import { auth } from "../auth";
 import { db } from "../db";
 import { posts } from "../db/schema";
-import { errorResponse } from "../lib/response";
+import { errors, ok } from "../lib/response";
 
 const postsRoute = new Hono()
   /**
@@ -31,7 +31,7 @@ const postsRoute = new Hono()
       },
     });
 
-    return c.json({
+    return ok(c, {
       posts: allPosts,
       pagination: { page, limit },
     });
@@ -58,10 +58,10 @@ const postsRoute = new Hono()
     });
 
     if (!post) {
-      return errorResponse(c, 404, "Post not found");
+      return errors.notFound(c, "Post not found");
     }
 
-    return c.json(post);
+    return ok(c, post);
   })
 
   /**
@@ -72,7 +72,7 @@ const postsRoute = new Hono()
     // Check authentication
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
-      return errorResponse(c, 401, "Unauthorized");
+      return errors.unauthorized(c);
     }
 
     const { title, content } = c.req.valid("json");
@@ -86,7 +86,7 @@ const postsRoute = new Hono()
       })
       .returning();
 
-    return c.json(newPost, 201);
+    return ok(c, newPost, 201);
   })
 
   /**
@@ -101,7 +101,7 @@ const postsRoute = new Hono()
       // Check authentication
       const session = await auth.api.getSession({ headers: c.req.raw.headers });
       if (!session) {
-        return errorResponse(c, 401, "Unauthorized");
+        return errors.unauthorized(c);
       }
 
       const { id } = c.req.valid("param");
@@ -113,11 +113,11 @@ const postsRoute = new Hono()
       });
 
       if (!post) {
-        return errorResponse(c, 404, "Post not found");
+        return errors.notFound(c, "Post not found");
       }
 
       if (post.userId !== session.user.id) {
-        return errorResponse(c, 403, "Forbidden");
+        return errors.forbidden(c);
       }
 
       const [updatedPost] = await db
@@ -129,7 +129,7 @@ const postsRoute = new Hono()
         .where(eq(posts.id, id))
         .returning();
 
-      return c.json(updatedPost);
+      return ok(c, updatedPost);
     },
   )
 
@@ -141,7 +141,7 @@ const postsRoute = new Hono()
     // Check authentication
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
-      return errorResponse(c, 401, "Unauthorized");
+      return errors.unauthorized(c);
     }
 
     const { id } = c.req.valid("param");
@@ -152,16 +152,16 @@ const postsRoute = new Hono()
     });
 
     if (!post) {
-      return errorResponse(c, 404, "Post not found");
+      return errors.notFound(c, "Post not found");
     }
 
     if (post.userId !== session.user.id) {
-      return errorResponse(c, 403, "Forbidden");
+      return errors.forbidden(c);
     }
 
     await db.delete(posts).where(eq(posts.id, id));
 
-    return c.json({ message: "Post deleted successfully" });
+    return ok(c, { message: "Post deleted successfully" });
   });
 
 export default postsRoute;

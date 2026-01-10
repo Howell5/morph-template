@@ -28,13 +28,6 @@
     }
   },
   "files": {
-    "ignore": [
-      "node_modules",
-      "dist",
-      "build",
-      ".next",
-      "coverage",
-      "drizzle"
-    ]
+    "ignore": ["node_modules", "dist", "build", ".next", "coverage", "drizzle"]
   }
 }
