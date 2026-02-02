@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/lib/api";
-import { type Order, formatPrice } from "@repo/shared";
+import { formatPrice } from "@repo/shared";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 
@@ -9,8 +9,14 @@ export function OrdersPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["orders"],
     queryFn: async () => {
-      const response = await (api as any).api.orders.$get();
-      return response.json() as Promise<{ orders: Order[] }>;
+      const response = await api.api.orders.$get({
+        query: { page: "1", limit: "20" },
+      });
+      const json = await response.json();
+      if (!json.success) {
+        throw new Error(json.error?.message || "Failed to fetch orders");
+      }
+      return json.data;
     },
   });
 
@@ -62,7 +68,7 @@ export function OrdersPage() {
         </Card>
       ) : (
         <div className="grid gap-4">
-          {data?.orders.map((order: Order) => (
+          {data?.orders.map((order) => (
             <Card key={order.id}>
               <CardHeader>
                 <div className="flex items-center justify-between">

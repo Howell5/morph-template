@@ -67,16 +67,3 @@ export const errors = {
 
   serviceUnavailable: (c: Context, message: string) => err(c, 503, message, "SERVICE_UNAVAILABLE"),
 };
-
-/**
- * @deprecated Use `err()` instead
- */
-export function errorResponse(
-  c: Context,
-  status: number,
-  message: string,
-  code?: string,
-  issues?: unknown[],
-) {
-  return err(c, status as ContentfulStatusCode, message, code, issues);
-}

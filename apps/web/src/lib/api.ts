@@ -1,10 +1,30 @@
 import { hcWithType } from "@repo/api/client";
-import type { ApiFailure, ApiSuccess } from "@repo/shared";
+import { type ApiFailure, type ApiSuccess, isPaywallError } from "@repo/shared";
+import { toast } from "sonner";
 import { env } from "../env";
+
+/**
+ * Custom API error with error code support
+ * Allows frontend to handle different error types appropriately
+ */
+export class ApiError extends Error {
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+  }
+}
 
 /**
  * Custom fetch wrapper that throws on non-2xx responses
  * By default, fetch doesn't throw on HTTP errors (4xx, 5xx)
+ *
+ * Features:
+ * - Automatically shows toast for non-paywall errors
+ * - Preserves error codes for special handling
+ * - Throws ApiError with code for programmatic handling
  */
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const response = await fetch(input, {
@@ -13,17 +33,25 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
   });
 
   if (!response.ok) {
-    // Try to parse error as ApiFailure
+    // Clone response to preserve the body for hono client to read
+    const clonedResponse = response.clone();
     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    let errorCode: string | undefined;
+
     try {
-      const errorData = (await response.json()) as ApiFailure;
+      const errorData = (await clonedResponse.json()) as ApiFailure;
       errorMessage = errorData.error?.message || errorMessage;
+      errorCode = errorData.error?.code;
     } catch {
       // If parsing fails, use default message
     }
 
-    const error = new Error(errorMessage);
-    throw error;
+    // Show toast for non-paywall errors (paywall errors are handled by PaywallModal)
+    if (!isPaywallError(errorCode)) {
+      toast.error(errorMessage);
+    }
+
+    throw new ApiError(errorMessage, errorCode);
   }
 
   return response;

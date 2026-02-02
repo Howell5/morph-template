@@ -3,10 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { api } from "@/lib/api";
 import { useSession } from "@/lib/auth-client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { User } from "lucide-react";
-import { useState } from "react";
+import { CheckCircle2, User, XCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -14,15 +16,46 @@ const fadeInUp = {
 };
 
 export function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, refetch: refetchSession } = useSession();
+  const queryClient = useQueryClient();
   const [name, setName] = useState(session?.user.name || "");
-  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    // TODO: Implement profile update API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsSaving(false);
+  // Sync name state when session changes
+  useEffect(() => {
+    if (session?.user.name) {
+      setName(session.user.name);
+    }
+  }, [session?.user.name]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (newName: string) => {
+      const response = await api.api.user.me.$patch({
+        json: { name: newName },
+      });
+      const json = await response.json();
+      if (!json.success) {
+        throw new Error(json.error?.message || "Failed to update profile");
+      }
+      return json.data;
+    },
+    onSuccess: () => {
+      setSaveStatus("success");
+      // Invalidate user queries and refetch session
+      queryClient.invalidateQueries({ queryKey: ["user", "me"] });
+      refetchSession();
+      // Reset status after 3 seconds
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    },
+    onError: () => {
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    },
+  });
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    updateMutation.mutate(name.trim());
   };
 
   return (
@@ -68,9 +101,23 @@ export function SettingsPage() {
               <p className="text-xs text-muted-foreground">Email cannot be changed</p>
             </div>
 
-            <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save Changes"}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button onClick={handleSave} disabled={updateMutation.isPending || !name.trim()}>
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+              {saveStatus === "success" && (
+                <span className="flex items-center gap-1 text-sm text-green-600">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Saved successfully
+                </span>
+              )}
+              {saveStatus === "error" && (
+                <span className="flex items-center gap-1 text-sm text-destructive">
+                  <XCircle className="h-4 w-4" />
+                  Failed to save
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
       </motion.div>

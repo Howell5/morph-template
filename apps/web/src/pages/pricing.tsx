@@ -18,11 +18,14 @@ export function PricingPage() {
 
   const checkoutMutation = useMutation({
     mutationFn: async (packageId: string) => {
-      const response = await (api as any).api.checkout.$post({
+      const response = await api.api.checkout.$post({
         json: { packageId },
       });
-      const data = await response.json();
-      return data as { checkoutUrl: string; sessionId: string };
+      const json = await response.json();
+      if (!json.success) {
+        throw new Error(json.error?.message || "Failed to create checkout session");
+      }
+      return json.data;
     },
     onSuccess: (data) => {
       // Redirect to Stripe Checkout

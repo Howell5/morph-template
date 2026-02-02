@@ -35,7 +35,7 @@ const checkoutRoute = new Hono()
 
     try {
       const stripe = getStripe();
-      const BETTER_AUTH_URL = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+      const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 
       // Create Stripe Checkout Session
       const checkoutSession = await stripe.checkout.sessions.create({
@@ -54,8 +54,8 @@ const checkoutRoute = new Hono()
           },
         ],
         mode: "payment",
-        success_url: `${BETTER_AUTH_URL.replace(/\/$/, "")}/orders?success=true`,
-        cancel_url: `${BETTER_AUTH_URL.replace(/\/$/, "")}/pricing?canceled=true`,
+        success_url: `${FRONTEND_URL.replace(/\/$/, "")}/dashboard/orders?success=true`,
+        cancel_url: `${FRONTEND_URL.replace(/\/$/, "")}/pricing?canceled=true`,
         client_reference_id: session.user.id,
         metadata: {
           userId: session.user.id,

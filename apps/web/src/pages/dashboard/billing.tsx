@@ -7,13 +7,6 @@ import { motion } from "framer-motion";
 import { Check, CreditCard, Zap } from "lucide-react";
 import { useState } from "react";
 
-interface UserData {
-  id: string;
-  name: string;
-  email: string;
-  credits: number;
-}
-
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
@@ -25,21 +18,29 @@ export function BillingPage() {
   const { data: userData, isLoading: isLoadingUser } = useQuery({
     queryKey: ["user", "me"],
     queryFn: async () => {
-      const response = await (api as any).api.user.me.$get();
-      return response.json() as Promise<UserData>;
+      const response = await api.api.user.me.$get();
+      const json = await response.json();
+      if (!json.success) {
+        throw new Error(json.error?.message || "Failed to fetch user data");
+      }
+      return json.data;
     },
   });
 
   const checkoutMutation = useMutation({
     mutationFn: async (packageId: string) => {
-      const response = await (api as any).api.checkout.$post({
+      const response = await api.api.checkout.$post({
         json: { packageId },
       });
-      return response.json() as Promise<{ url: string }>;
+      const json = await response.json();
+      if (!json.success) {
+        throw new Error(json.error?.message || "Failed to create checkout session");
+      }
+      return json.data;
     },
     onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
       }
     },
   });

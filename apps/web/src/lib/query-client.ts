@@ -7,10 +7,9 @@ import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Development-friendly settings
-      retry: 1, // Don't retry too many times in development
-      refetchOnWindowFocus: false, // Prevents annoying refetches during debugging
-      staleTime: 0, // Data is immediately stale, users can optimize per-query
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 60 * 1000, // 1 minute - reasonable default for most data
     },
   },
   queryCache: new QueryCache({

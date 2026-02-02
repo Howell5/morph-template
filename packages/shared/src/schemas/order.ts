@@ -44,10 +44,33 @@ export const checkoutResponseSchema = z.object({
 export type CheckoutResponse = z.infer<typeof checkoutResponseSchema>;
 
 /**
+ * Query parameters for orders list
+ */
+export const ordersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export type OrdersQuery = z.infer<typeof ordersQuerySchema>;
+
+/**
+ * Pagination metadata for orders response
+ */
+export const ordersPaginationSchema = z.object({
+  page: z.number().int(),
+  limit: z.number().int(),
+  total: z.number().int(),
+  totalPages: z.number().int(),
+});
+
+export type OrdersPagination = z.infer<typeof ordersPaginationSchema>;
+
+/**
  * Orders list response schema
  */
 export const ordersResponseSchema = z.object({
   orders: z.array(orderSchema),
+  pagination: ordersPaginationSchema,
 });
 
 export type OrdersResponse = z.infer<typeof ordersResponseSchema>;

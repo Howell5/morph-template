@@ -8,13 +8,6 @@ import { motion } from "framer-motion";
 import { CreditCard, History, Settings, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 
-interface UserData {
-  id: string;
-  name: string;
-  email: string;
-  credits: number;
-}
-
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
@@ -26,8 +19,12 @@ export function DashboardPage() {
   const { data: userData, isLoading } = useQuery({
     queryKey: ["user", "me"],
     queryFn: async () => {
-      const response = await (api as any).api.user.me.$get();
-      return response.json() as Promise<UserData>;
+      const response = await api.api.user.me.$get();
+      const json = await response.json();
+      if (!json.success) {
+        throw new Error(json.error?.message || "Failed to fetch user data");
+      }
+      return json.data;
     },
   });
 
