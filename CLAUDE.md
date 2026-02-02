@@ -26,6 +26,7 @@ pnpm build
 pnpm lint          # Lint all packages
 pnpm format        # Format code with Biome
 pnpm check         # Check and fix code issues
+pnpm check:lines   # Check file line count (max 500 lines)
 
 # Database operations
 pnpm db:push       # Push schema changes to database (development)
@@ -89,25 +90,47 @@ export const hcWithType = (...args: Parameters<typeof hc>): ApiClient =>
 3. **Frontend uses pre-compiled client** (`apps/web/src/lib/api.ts`):
 ```typescript
 import { hcWithType } from "@repo/api/client";
+import { isPaywallError } from "@repo/shared";
+import { toast } from "sonner";
 
-export const api = hcWithType(env.VITE_API_URL, {
-  fetch: apiFetch,
-});
+// Custom error class with error code support
+export class ApiError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+  }
+}
+
+// apiFetch automatically shows toast for non-paywall errors
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const response = await fetch(input, { ...init, credentials: "include" });
+
+  if (!response.ok) {
+    const clonedResponse = response.clone();
+    let errorMessage = `HTTP ${response.status}`;
+    let errorCode: string | undefined;
+    try {
+      const errorData = await clonedResponse.json();
+      errorMessage = errorData.error?.message || errorMessage;
+      errorCode = errorData.error?.code;
+    } catch {}
+
+    // Auto toast for non-paywall errors
+    if (!isPaywallError(errorCode)) {
+      toast.error(errorMessage);
+    }
+
+    throw new ApiError(errorMessage, errorCode);
+  }
+  return response;
+}
+
+export const api = hcWithType(env.VITE_API_URL, { fetch: apiFetch });
 
 // Helper type to extract data from ApiSuccess<T>
 export type ExtractData<T> = T extends ApiSuccess<infer D> ? D : never;
-
-// Helper function to unwrap API responses
-export async function unwrap<T extends ApiSuccess<unknown>>(
-  responsePromise: Promise<Response>,
-): Promise<ExtractData<T>> {
-  const response = await responsePromise;
-  const json = await response.json();
-  if (!json.success) {
-    throw new Error(json.error?.message || "Unknown error");
-  }
-  return json.data;
-}
 ```
 
 4. **All API calls are fully typed**:
@@ -202,25 +225,28 @@ morph-template/
 │   │   │   ├── routes/
 │   │   │   │   ├── posts.ts    # Posts CRUD
 │   │   │   │   ├── checkout.ts # Stripe checkout session creation
-│   │   │   │   ├── orders.ts   # User order history
+│   │   │   │   ├── orders.ts   # User order history (with pagination)
 │   │   │   │   ├── webhooks.ts # Stripe webhook handler
-│   │   │   │   └── user.ts     # User profile & credits
+│   │   │   │   └── user.ts     # User profile & credits (GET + PATCH)
 │   │   │   ├── db/
 │   │   │   │   ├── schema.ts   # Drizzle schema (user, orders, posts)
 │   │   │   │   └── index.ts    # Database connection + health check
 │   │   │   ├── lib/
 │   │   │   │   ├── response.ts # ok(), err(), errors.* helpers
+│   │   │   │   ├── rate-limit.ts # Sliding window rate limiter + getClientIp
 │   │   │   │   └── stripe.ts   # Stripe client singleton
-│   │   │   ├── auth.ts         # Better Auth configuration
+│   │   │   ├── auth.ts         # Better Auth configuration (dynamic providers)
 │   │   │   ├── client.ts       # Pre-compiled RPC client export
 │   │   │   ├── env.ts          # Environment variable validation
 │   │   │   └── index.ts        # Main app, EXPORTS AppType
 │   │   └── drizzle.config.ts   # Drizzle Kit configuration
 │   └── web/                    # Frontend application
 │       ├── src/
-│       │   ├── components/ui/  # shadcn/ui components
+│       │   ├── components/
+│       │   │   ├── ui/         # shadcn/ui components
+│       │   │   └── error-boundary.tsx  # React error boundary
 │       │   ├── lib/
-│       │   │   ├── api.ts      # Typed Hono client + ExtractData + unwrap
+│       │   │   ├── api.ts      # Typed Hono client + ApiError + auto toast
 │       │   │   ├── auth-client.ts  # Better Auth client
 │       │   │   ├── query-client.ts # TanStack Query setup
 │       │   │   └── utils.ts    # Utilities (cn helper)
@@ -228,16 +254,19 @@ morph-template/
 │       │   ├── env.ts          # Frontend env validation
 │       │   └── main.tsx        # React entry point
 │       └── vite.config.ts
-└── packages/
-    └── shared/                 # Shared schemas and types
-        └── src/
-            ├── schemas/
-            │   ├── common.ts   # ApiSuccess, ApiFailure, ApiResponse types
-            │   ├── post.ts     # Post-related schemas
-            │   └── order.ts    # Order schemas (checkout, order status)
-            ├── config/
-            │   └── pricing.ts  # Credit packages & pricing config
-            └── index.ts        # Re-exports all schemas
+├── packages/
+│   └── shared/                 # Shared schemas and types
+│       └── src/
+│           ├── schemas/
+│           │   ├── common.ts   # ApiSuccess, ApiFailure, ERROR_CODES, isPaywallError
+│           │   ├── post.ts     # Post-related schemas
+│           │   ├── order.ts    # Order schemas (with pagination)
+│           │   └── user.ts     # User update schema
+│           ├── config/
+│           │   └── pricing.ts  # Credit packages & pricing config
+│           └── index.ts        # Re-exports all schemas
+└── scripts/
+    └── check-file-lines.ts     # File line count checker (max 500)
 ```
 
 ## Adding New Features
@@ -433,6 +462,47 @@ Unhandled errors are caught and return a consistent error response:
 - Development: Full error message
 - Production: Generic "Internal server error"
 
+### Rate Limiting
+Use the sliding window rate limiter (`apps/api/src/lib/rate-limit.ts`):
+
+```typescript
+import { checkRateLimit, CHECKOUT_LIMIT, getClientIp } from "../lib/rate-limit";
+
+// In route handler
+const ip = getClientIp(c.req.raw.headers);
+const rateLimit = checkRateLimit(`checkout:${userId}`, CHECKOUT_LIMIT);
+if (rateLimit.limited) {
+  return errors.tooManyRequests(c);
+}
+```
+
+Available configurations:
+- `API_USER_LIMIT`: 100 req/min per user
+- `GLOBAL_IP_LIMIT`: 200 req/min per IP
+- `CHECKOUT_LIMIT`: 5 req/hour per user
+- `WEBHOOK_LIMIT`: 100 req/min per IP
+
+### Error Codes
+Standard error codes are defined in `packages/shared/src/schemas/common.ts`:
+
+```typescript
+import { ERROR_CODES, isPaywallError } from "@repo/shared";
+
+// Backend: use error codes
+return errors.unauthorized(c);  // Uses ERROR_CODES.UNAUTHORIZED
+
+// Frontend: check error type
+if (isPaywallError(error.code)) {
+  // Show paywall modal instead of toast
+}
+```
+
+Paywall errors (handled specially in frontend):
+- `INSUFFICIENT_CREDITS`
+- `PAYMENT_REQUIRED`
+- `SUBSCRIPTION_REQUIRED`
+- `LIMIT_REACHED`
+
 ## Environment Variables
 
 ### Backend (apps/api/.env)
@@ -442,7 +512,14 @@ BETTER_AUTH_SECRET=<32+ character secret>
 BETTER_AUTH_URL=http://localhost:3000
 NODE_ENV=development
 PORT=3000
-FRONTEND_URL=http://localhost:5173  # For CORS
+FRONTEND_URL=http://localhost:5173  # For CORS and checkout redirects
+
+# OAuth providers (optional in development, required in production)
+# If not configured, the corresponding social login won't be available
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
 
 # Stripe (optional in development, required in production)
 STRIPE_SECRET_KEY=sk_test_...       # Get from Stripe Dashboard
@@ -458,6 +535,8 @@ VITE_API_URL=http://localhost:3000
 ```
 
 **Important**: Environment variables are validated at startup via `validateEnv()` in both API and Web.
+
+**Note**: OAuth providers are dynamically configured - only providers with valid credentials will be enabled.
 
 ## Important Notes
 

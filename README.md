@@ -79,21 +79,23 @@ Edit `apps/api/.env` with your values:
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `BETTER_AUTH_SECRET` | Yes | Secure random string (min 32 chars) |
-| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret |
-| `GITHUB_CLIENT_ID` | Yes | GitHub OAuth client ID |
-| `GITHUB_CLIENT_SECRET` | Yes | GitHub OAuth client secret |
+| `GOOGLE_CLIENT_ID` | No* | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | No* | Google OAuth client secret |
+| `GITHUB_CLIENT_ID` | No* | GitHub OAuth client ID |
+| `GITHUB_CLIENT_SECRET` | No* | GitHub OAuth client secret |
 | `STRIPE_SECRET_KEY` | No | Stripe API key (for payments) |
 | `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook secret |
+
+*OAuth providers are optional in development. If not configured, the corresponding social login button won't work. At least one OAuth provider should be configured for authentication to function.
 
 Generate a secure secret:
 ```bash
 openssl rand -base64 32
 ```
 
-### 2.1 Configure OAuth Providers
+### 2.1 Configure OAuth Providers (Optional in Development)
 
-This template uses **social login only** (no email/password). You must configure both Google and GitHub OAuth.
+This template uses **social login only** (no email/password). OAuth providers are optional in development - the server will start without them, but login won't work until at least one is configured.
 
 #### Google OAuth
 
