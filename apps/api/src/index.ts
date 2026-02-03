@@ -1,14 +1,3 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-// IMPORTANT: Load environment variables FIRST, before any other imports
-import dotenv from "dotenv";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load .env from apps/api directory
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
-
 // Configure HTTP proxy for Node.js fetch (useful for local development)
 // Supports: HTTPS_PROXY, https_proxy, HTTP_PROXY, http_proxy, ALL_PROXY, all_proxy
 const proxyUrl =
