@@ -10,6 +10,7 @@ A modern, type-safe full-stack monorepo template featuring end-to-end type safet
 - **📦 Monorepo Architecture**: pnpm workspaces + Turborepo for efficient builds and caching
 - **🔐 Built-in Authentication**: Better Auth with Google & GitHub OAuth (social login only)
 - **💳 Credits & Payments**: Stripe integration with checkout sessions, webhooks, and order history
+- **📁 File Upload**: Cloudflare R2 with presigned URLs for direct frontend upload
 - **🗄️ Modern Database**: PostgreSQL + Drizzle ORM with type-safe queries
 - **⚡ Fast Development**: Vite + Hot Module Replacement + TypeScript strict mode
 - **🎨 Beautiful UI**: shadcn/ui + Tailwind CSS for rapid UI development
@@ -22,11 +23,11 @@ A modern, type-safe full-stack monorepo template featuring end-to-end type safet
 ```
 morph-template/
 ├── apps/
-│   ├── api/              # Backend (Hono + Drizzle + Better Auth + Stripe)
+│   ├── api/              # Backend (Hono + Drizzle + Better Auth + Stripe + R2)
 │   │   ├── src/
 │   │   │   ├── db/       # Database schemas and connection
-│   │   │   ├── routes/   # API routes (posts, checkout, orders, webhooks)
-│   │   │   ├── lib/      # Utilities (response helpers, stripe client)
+│   │   │   ├── routes/   # API routes (posts, checkout, orders, webhooks, upload)
+│   │   │   ├── lib/      # Utilities (response helpers, stripe, r2 client)
 │   │   │   ├── auth.ts   # Better Auth configuration
 │   │   │   ├── env.ts    # Environment variable validation
 │   │   │   └── index.ts  # Main app (exports AppType)
@@ -34,7 +35,7 @@ morph-template/
 │   └── web/              # Frontend (React + Vite + TanStack Query)
 │       ├── src/
 │       │   ├── components/  # UI components (shadcn/ui)
-│       │   ├── lib/         # API client, auth client, utils
+│       │   ├── lib/         # API client, auth client, upload utils
 │       │   ├── pages/       # Page components (orders, etc.)
 │       │   ├── env.ts       # Frontend env validation
 │       │   └── main.tsx
@@ -42,7 +43,7 @@ morph-template/
 └── packages/
     └── shared/           # Shared Zod schemas and types
         └── src/
-            ├── schemas/  # Validation schemas (posts, orders, common)
+            ├── schemas/  # Validation schemas (posts, orders, upload, common)
             └── config/   # Credit packages & pricing
 ```
 
@@ -85,6 +86,11 @@ Edit `apps/api/.env` with your values:
 | `GITHUB_CLIENT_SECRET` | No* | GitHub OAuth client secret |
 | `STRIPE_SECRET_KEY` | No | Stripe API key (for payments) |
 | `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook secret |
+| `R2_ACCOUNT_ID` | No | Cloudflare account ID (for file uploads) |
+| `R2_ACCESS_KEY_ID` | No | R2 API token access key |
+| `R2_SECRET_ACCESS_KEY` | No | R2 API token secret key |
+| `R2_BUCKET_NAME` | No | R2 bucket name |
+| `R2_PUBLIC_URL` | No | Custom public URL for uploaded files |
 
 *OAuth providers are optional in development. If not configured, the corresponding social login button won't work. At least one OAuth provider should be configured for authentication to function.
 
@@ -262,6 +268,51 @@ function Component() {
 }
 ```
 
+## 📁 File Upload (Cloudflare R2)
+
+This template includes a complete file upload system using Cloudflare R2 with presigned URLs for direct frontend upload.
+
+### How It Works
+
+1. Frontend requests a presigned URL from the backend
+2. Backend generates a presigned PUT URL (valid for 5 minutes)
+3. Frontend uploads directly to R2 (bypasses backend for efficiency)
+4. Returns a public URL for the uploaded file
+
+### Setting Up R2
+
+1. Create a [Cloudflare account](https://dash.cloudflare.com/sign-up)
+2. Go to R2 Object Storage and create a bucket
+3. Create an API token with R2 read/write permissions
+4. Set environment variables:
+```bash
+R2_ACCOUNT_ID=your-account-id
+R2_ACCESS_KEY_ID=your-access-key
+R2_SECRET_ACCESS_KEY=your-secret-key
+R2_BUCKET_NAME=your-bucket-name
+R2_PUBLIC_URL=https://your-bucket.r2.dev  # Optional
+```
+
+### Supported File Types
+
+- `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml`
+- Maximum file size: 10MB
+
+### Example: Upload a File
+
+```typescript
+import { uploadFile } from "@/lib/upload";
+
+// Simple upload
+const result = await uploadFile(file);
+console.log(result.publicUrl);
+
+// Upload with progress tracking
+const result = await uploadFile(file, (progress) => {
+  console.log(`${progress.percentage}%`);
+});
+```
+
 ## 💳 Credits & Payments
 
 This template includes a complete credits-based payment system using Stripe.
@@ -281,6 +332,7 @@ Defined in `packages/shared/src/config/pricing.ts`:
 | `/api/orders` | GET | Get user's order history |
 | `/api/webhooks/stripe` | POST | Handle Stripe webhook events |
 | `/api/user/credits` | GET | Get user's current credit balance |
+| `/api/upload/presign` | POST | Generate R2 presigned upload URL |
 
 ### Setting Up Stripe
 
@@ -550,6 +602,11 @@ For each service:
 | `FRONTEND_URL` | Your web URL for CORS | `https://yourdomain.com` |
 | `STRIPE_SECRET_KEY` | Stripe secret key | `sk_live_...` |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | `whsec_...` |
+| `R2_ACCOUNT_ID` | Cloudflare account ID | `abc123...` |
+| `R2_ACCESS_KEY_ID` | R2 API token access key | `...` |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret key | `...` |
+| `R2_BUCKET_NAME` | R2 bucket name | `my-bucket` |
+| `R2_PUBLIC_URL` | Custom public URL (optional) | `https://cdn.example.com` |
 
 **Web Service:**
 | Variable | Description | Example |

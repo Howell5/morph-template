@@ -32,6 +32,7 @@ import { validateEnv } from "./env";
 import checkoutRoute from "./routes/checkout";
 import ordersRoute from "./routes/orders";
 import postsRoute from "./routes/posts";
+import uploadRoute from "./routes/upload";
 import userRoute from "./routes/user";
 import webhooksRoute from "./routes/webhooks";
 
@@ -123,7 +124,8 @@ const app = baseApp
   .route("/api/checkout", checkoutRoute)
   .route("/api/orders", ordersRoute)
   .route("/api/webhooks", webhooksRoute)
-  .route("/api/user", userRoute);
+  .route("/api/user", userRoute)
+  .route("/api/upload", uploadRoute);
 
 /**
  * Export the app type for frontend type inference

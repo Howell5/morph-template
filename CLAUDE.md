@@ -10,6 +10,7 @@ Morph Template is a full-stack TypeScript monorepo featuring end-to-end type saf
 - **Backend**: Hono (web framework) + Drizzle ORM + PostgreSQL + Better Auth
 - **Frontend**: React + Vite + TanStack Query + shadcn/ui + Tailwind CSS
 - **Payments**: Stripe (Checkout + Webhooks)
+- **File Storage**: Cloudflare R2 (S3-compatible, frontend direct upload)
 - **Monorepo**: pnpm workspaces + Turborepo
 - **Tooling**: Biome (linting/formatting), TypeScript strict mode
 
@@ -215,6 +216,60 @@ if (json.success) {
 }
 ```
 
+### File Upload (Cloudflare R2)
+
+The template includes a complete file upload system using Cloudflare R2 with frontend direct upload via presigned URLs.
+
+**Architecture**:
+1. Frontend requests a presigned URL from backend
+2. Backend generates presigned PUT URL (valid for 5 minutes)
+3. Frontend uploads directly to R2 (bypasses backend)
+4. Returns public URL for the uploaded file
+
+**Configuration** (optional in development):
+```bash
+R2_ACCOUNT_ID=xxx              # Cloudflare account ID
+R2_ACCESS_KEY_ID=xxx           # R2 API token access key
+R2_SECRET_ACCESS_KEY=xxx       # R2 API token secret key
+R2_BUCKET_NAME=xxx             # R2 bucket name
+R2_PUBLIC_URL=https://xxx.r2.dev  # Optional: custom public URL
+```
+
+**API Route**:
+- `POST /api/upload/presign` - Generate presigned upload URL (requires auth)
+
+**Allowed File Types** (`packages/shared/src/schemas/upload.ts`):
+- `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml`
+- Max file size: 10MB
+- Presigned URL expires in 5 minutes
+
+**Frontend Usage** (`apps/web/src/lib/upload.ts`):
+```typescript
+import { uploadFile, validateFile } from "@/lib/upload";
+
+// Simple upload
+const result = await uploadFile(file);
+console.log(result.publicUrl);  // https://xxx.r2.dev/uploads/userId/timestamp-uuid.png
+
+// Upload with progress tracking
+const result = await uploadFile(file, (progress) => {
+  console.log(`${progress.percentage}%`);  // 0-100
+});
+
+// Validate file before upload (optional, uploadFile does this internally)
+const validation = validateFile(file);
+if (!validation.valid) {
+  console.error(validation.error);
+}
+```
+
+**File Storage Structure**:
+```
+uploads/
+└── {userId}/
+    └── {timestamp}-{uuid}.{ext}
+```
+
 ## Project Structure
 
 ```
@@ -227,14 +282,16 @@ morph-template/
 │   │   │   │   ├── checkout.ts # Stripe checkout session creation
 │   │   │   │   ├── orders.ts   # User order history (with pagination)
 │   │   │   │   ├── webhooks.ts # Stripe webhook handler
-│   │   │   │   └── user.ts     # User profile & credits (GET + PATCH)
+│   │   │   │   ├── user.ts     # User profile & credits (GET + PATCH)
+│   │   │   │   └── upload.ts   # R2 presigned URL generation
 │   │   │   ├── db/
 │   │   │   │   ├── schema.ts   # Drizzle schema (user, orders, posts)
 │   │   │   │   └── index.ts    # Database connection + health check
 │   │   │   ├── lib/
 │   │   │   │   ├── response.ts # ok(), err(), errors.* helpers
 │   │   │   │   ├── rate-limit.ts # Sliding window rate limiter + getClientIp
-│   │   │   │   └── stripe.ts   # Stripe client singleton
+│   │   │   │   ├── stripe.ts   # Stripe client singleton
+│   │   │   │   └── r2.ts       # R2 client + presigned URL generation
 │   │   │   ├── auth.ts         # Better Auth configuration (dynamic providers)
 │   │   │   ├── client.ts       # Pre-compiled RPC client export
 │   │   │   ├── env.ts          # Environment variable validation
@@ -249,6 +306,7 @@ morph-template/
 │       │   │   ├── api.ts      # Typed Hono client + ApiError + auto toast
 │       │   │   ├── auth-client.ts  # Better Auth client
 │       │   │   ├── query-client.ts # TanStack Query setup
+│       │   │   ├── upload.ts   # File upload utilities (R2 direct upload)
 │       │   │   └── utils.ts    # Utilities (cn helper)
 │       │   ├── pages/          # Page components (orders.tsx, etc.)
 │       │   ├── env.ts          # Frontend env validation
@@ -261,7 +319,8 @@ morph-template/
 │           │   ├── common.ts   # ApiSuccess, ApiFailure, ERROR_CODES, isPaywallError
 │           │   ├── post.ts     # Post-related schemas
 │           │   ├── order.ts    # Order schemas (with pagination)
-│           │   └── user.ts     # User update schema
+│           │   ├── user.ts     # User update schema
+│           │   └── upload.ts   # Upload schemas + file type/size constants
 │           ├── config/
 │           │   └── pricing.ts  # Credit packages & pricing config
 │           └── index.ts        # Re-exports all schemas
@@ -524,6 +583,13 @@ GITHUB_CLIENT_SECRET=...
 # Stripe (optional in development, required in production)
 STRIPE_SECRET_KEY=sk_test_...       # Get from Stripe Dashboard
 STRIPE_WEBHOOK_SECRET=whsec_...     # Get from Stripe CLI or Dashboard
+
+# Cloudflare R2 (optional in development, required for file uploads)
+R2_ACCOUNT_ID=xxx                   # Cloudflare account ID
+R2_ACCESS_KEY_ID=xxx                # R2 API token access key
+R2_SECRET_ACCESS_KEY=xxx            # R2 API token secret key
+R2_BUCKET_NAME=xxx                  # R2 bucket name
+R2_PUBLIC_URL=https://xxx.r2.dev   # Optional: custom public URL
 
 # Optional: HTTP proxy for external API calls
 HTTPS_PROXY=http://127.0.0.1:7890
