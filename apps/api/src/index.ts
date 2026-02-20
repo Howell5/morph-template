@@ -29,6 +29,7 @@ import { logger } from "hono/logger";
 import { auth } from "./auth";
 import { checkDatabaseHealth, closeDatabase } from "./db";
 import { validateEnv } from "./env";
+import aiRoute from "./routes/ai";
 import checkoutRoute from "./routes/checkout";
 import ordersRoute from "./routes/orders";
 import postsRoute from "./routes/posts";
@@ -125,7 +126,8 @@ const app = baseApp
   .route("/api/orders", ordersRoute)
   .route("/api/webhooks", webhooksRoute)
   .route("/api/user", userRoute)
-  .route("/api/upload", uploadRoute);
+  .route("/api/upload", uploadRoute)
+  .route("/api/ai", aiRoute);
 
 /**
  * Export the app type for frontend type inference

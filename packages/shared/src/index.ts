@@ -13,5 +13,11 @@ export * from "./schemas/user";
 // Upload schemas
 export * from "./schemas/upload";
 
+// AI provider schemas
+export * from "./schemas/ai-provider";
+
+// AI task schemas
+export * from "./schemas/ai-task";
+
 // Pricing config
 export * from "./config/pricing";

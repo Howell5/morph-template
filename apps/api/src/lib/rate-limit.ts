@@ -23,7 +23,10 @@ setInterval(() => {
   const now = Date.now();
   for (const [key, entry] of store.entries()) {
     // Remove entries with no recent timestamps
-    if (entry.timestamps.length === 0 || entry.timestamps[entry.timestamps.length - 1] < now - 60000) {
+    if (
+      entry.timestamps.length === 0 ||
+      entry.timestamps[entry.timestamps.length - 1] < now - 60000
+    ) {
       store.delete(key);
     }
   }
@@ -113,6 +116,15 @@ export const WEBHOOK_LIMIT: RateLimitConfig = {
   maxRequests: 100,
 };
 
+/**
+ * AI generation rate limit per user
+ * 10 requests per minute
+ */
+export const AI_GENERATION_LIMIT: RateLimitConfig = {
+  windowMs: 60 * 1000, // 1 minute
+  maxRequests: 10,
+};
+
 // =============================================================================
 // Rate Limit Key Generators
 // =============================================================================
@@ -143,6 +155,13 @@ export function getCheckoutRateLimitKey(userId: string): string {
  */
 export function getWebhookRateLimitKey(ip: string): string {
   return `webhook:${ip}`;
+}
+
+/**
+ * Generate rate limit key for AI generation
+ */
+export function getAIGenerationRateLimitKey(userId: string): string {
+  return `ai-gen:${userId}`;
 }
 
 // =============================================================================

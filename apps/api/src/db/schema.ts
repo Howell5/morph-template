@@ -112,6 +112,40 @@ export const orders = pgTable("orders", {
 });
 
 /**
+ * AI Tasks table
+ * Tracks AI generation tasks across providers
+ */
+export const aiTasks = pgTable("ai_tasks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  provider: text("provider").notNull(),
+  type: text("type").notNull(),
+  model: text("model").notNull(),
+  status: text("status").notNull().default("pending"),
+  // Input
+  prompt: text("prompt").notNull(),
+  negativePrompt: text("negative_prompt"),
+  aspectRatio: text("aspect_ratio").default("16:9"),
+  duration: integer("duration"),
+  mode: text("mode").default("std"),
+  inputImageUrl: text("input_image_url"),
+  // Provider tracking
+  providerTaskId: text("provider_task_id"),
+  // Output
+  resultUrl: text("result_url"),
+  r2Key: text("r2_key"),
+  // Cost & metrics
+  creditsUsed: integer("credits_used").default(0),
+  durationMs: integer("duration_ms"),
+  error: text("error"),
+  // Timestamps
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
+});
+
+/**
  * Relations
  */
 export const userRelations = relations(user, ({ many }) => ({
@@ -119,6 +153,7 @@ export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   orders: many(orders),
+  aiTasks: many(aiTasks),
 }));
 
 export const postsRelations = relations(posts, ({ one }) => ({
@@ -145,6 +180,13 @@ export const accountRelations = relations(account, ({ one }) => ({
 export const ordersRelations = relations(orders, ({ one }) => ({
   user: one(user, {
     fields: [orders.userId],
+    references: [user.id],
+  }),
+}));
+
+export const aiTasksRelations = relations(aiTasks, ({ one }) => ({
+  user: one(user, {
+    fields: [aiTasks.userId],
     references: [user.id],
   }),
 }));
