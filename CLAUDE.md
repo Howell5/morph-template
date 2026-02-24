@@ -10,6 +10,7 @@ Morph Template is a full-stack TypeScript monorepo featuring end-to-end type saf
 - **Backend**: Hono (web framework) + Drizzle ORM + PostgreSQL + Better Auth
 - **Frontend**: React + Vite + TanStack Query + shadcn/ui + Tailwind CSS
 - **Payments**: Stripe (Checkout + Webhooks)
+- **AI**: OpenRouter SDK (unified access to 300+ LLMs)
 - **File Storage**: Cloudflare R2 (S3-compatible, frontend direct upload)
 - **Monorepo**: pnpm workspaces + Turborepo
 - **Tooling**: Biome (linting/formatting), TypeScript strict mode
@@ -173,6 +174,12 @@ Better Auth provides session-based authentication:
 
 **Important**: The custom `apiFetch` wrapper in `apps/web/src/lib/api.ts` ensures `credentials: 'include'` is set on all requests.
 
+**Development Mode (Zero-Config Auth)**:
+- Email/password auth is automatically enabled when `NODE_ENV !== "production"`
+- A test account (`test@test.com` / `password123`) is seeded on startup via `apps/api/src/lib/seed-dev.ts`
+- The login page (`apps/web/src/pages/login.tsx`) shows a pre-filled email/password form in dev mode (using `import.meta.env.DEV`)
+- No OAuth credentials needed for local development
+
 ### Credits & Payments System
 
 The template includes a complete credits-based payment system using Stripe:
@@ -270,6 +277,31 @@ uploads/
     └── {timestamp}-{uuid}.{ext}
 ```
 
+### AI Chat (OpenRouter)
+
+The template includes an AI chat endpoint powered by the OpenRouter SDK (`@openrouter/sdk`), providing unified access to 300+ language models.
+
+**Architecture**:
+- Singleton client pattern (`apps/api/src/lib/ai.ts`) — same as `stripe.ts` and `r2.ts`
+- `isAIConfigured()` check before use, returns 503 if not configured
+- Shared Zod schemas in `packages/shared/src/schemas/chat.ts`
+
+**API Route**:
+- `POST /api/chat` — Unified chat + image generation endpoint (requires auth)
+
+**Modes**:
+- **Text chat** (`modalities: ["text"]`): Streaming SSE response via `streamSSE()` from Hono
+- **Image generation** (`modalities: ["image", "text"]`): Non-streaming response with base64 images
+
+**Configuration** (optional in development):
+```bash
+OPENROUTER_API_KEY=sk-or-...    # OpenRouter API key
+```
+
+**Example Models**:
+- Text: `moonshotai/kimi-k2.5` (default), `minimax/minimax-m2.5`
+- Image: `google/gemini-2.5-flash-image`
+
 ## Project Structure
 
 ```
@@ -283,7 +315,8 @@ morph-template/
 │   │   │   │   ├── orders.ts   # User order history (with pagination)
 │   │   │   │   ├── webhooks.ts # Stripe webhook handler
 │   │   │   │   ├── user.ts     # User profile & credits (GET + PATCH)
-│   │   │   │   └── upload.ts   # R2 presigned URL generation
+│   │   │   │   ├── upload.ts   # R2 presigned URL generation
+│   │   │   │   └── chat.ts     # AI chat (streaming SSE + image gen)
 │   │   │   ├── db/
 │   │   │   │   ├── schema.ts   # Drizzle schema (user, orders, posts)
 │   │   │   │   └── index.ts    # Database connection + health check
@@ -291,7 +324,9 @@ morph-template/
 │   │   │   │   ├── response.ts # ok(), err(), errors.* helpers
 │   │   │   │   ├── rate-limit.ts # Sliding window rate limiter + getClientIp
 │   │   │   │   ├── stripe.ts   # Stripe client singleton
-│   │   │   │   └── r2.ts       # R2 client + presigned URL generation
+│   │   │   │   ├── r2.ts       # R2 client + presigned URL generation
+│   │   │   │   ├── ai.ts       # OpenRouter client singleton
+│   │   │   │   └── seed-dev.ts # Dev test account seeding
 │   │   │   ├── auth.ts         # Better Auth configuration (dynamic providers)
 │   │   │   ├── client.ts       # Pre-compiled RPC client export
 │   │   │   ├── env.ts          # Environment variable validation
@@ -320,7 +355,8 @@ morph-template/
 │           │   ├── post.ts     # Post-related schemas
 │           │   ├── order.ts    # Order schemas (with pagination)
 │           │   ├── user.ts     # User update schema
-│           │   └── upload.ts   # Upload schemas + file type/size constants
+│           │   ├── upload.ts   # Upload schemas + file type/size constants
+│           │   └── chat.ts     # Chat message & request schemas
 │           ├── config/
 │           │   └── pricing.ts  # Credit packages & pricing config
 │           └── index.ts        # Re-exports all schemas
@@ -583,6 +619,9 @@ GITHUB_CLIENT_SECRET=...
 # Stripe (optional in development, required in production)
 STRIPE_SECRET_KEY=sk_test_...       # Get from Stripe Dashboard
 STRIPE_WEBHOOK_SECRET=whsec_...     # Get from Stripe CLI or Dashboard
+
+# OpenRouter AI (optional in development)
+OPENROUTER_API_KEY=sk-or-...        # OpenRouter API key
 
 # Cloudflare R2 (optional in development, required for file uploads)
 R2_ACCOUNT_ID=xxx                   # Cloudflare account ID
