@@ -35,6 +35,10 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
   }),
+  // Enable email/password auth in development for zero-config dev experience
+  emailAndPassword: {
+    enabled: process.env.NODE_ENV !== "production",
+  },
   socialProviders: buildSocialProviders(),
   secret: process.env.BETTER_AUTH_SECRET!,
   baseURL: process.env.BETTER_AUTH_URL!,

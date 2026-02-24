@@ -29,7 +29,8 @@ import { logger } from "hono/logger";
 import { auth } from "./auth";
 import { checkDatabaseHealth, closeDatabase } from "./db";
 import { validateEnv } from "./env";
-import aiRoute from "./routes/ai";
+import { seedDevAccounts } from "./lib/seed-dev";
+import chatRoute from "./routes/chat";
 import checkoutRoute from "./routes/checkout";
 import ordersRoute from "./routes/orders";
 import postsRoute from "./routes/posts";
@@ -38,6 +39,9 @@ import userRoute from "./routes/user";
 import webhooksRoute from "./routes/webhooks";
 
 const env = validateEnv();
+
+// Seed dev accounts (fire-and-forget, non-production only)
+seedDevAccounts();
 
 // CORS configuration - supports both development and production
 const getAllowedOrigins = () => {
@@ -127,7 +131,7 @@ const app = baseApp
   .route("/api/webhooks", webhooksRoute)
   .route("/api/user", userRoute)
   .route("/api/upload", uploadRoute)
-  .route("/api/ai", aiRoute);
+  .route("/api/chat", chatRoute);
 
 /**
  * Export the app type for frontend type inference

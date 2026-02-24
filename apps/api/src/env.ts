@@ -18,6 +18,8 @@ const envSchema = z.object({
   // Kling AI provider (optional in development)
   KLING_ACCESS_KEY: z.string().optional(),
   KLING_SECRET_KEY: z.string().optional(),
+  // OpenRouter API (optional in development)
+  OPENROUTER_API_KEY: z.string().optional(),
   // Cloudflare R2 configuration (optional in development)
   R2_ACCOUNT_ID: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
