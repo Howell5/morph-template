@@ -22,5 +22,8 @@ export * from "./schemas/ai-task";
 // Chat schemas
 export * from "./schemas/chat";
 
+// Task schemas
+export * from "./schemas/task";
+
 // Pricing config
 export * from "./config/pricing";

@@ -29,11 +29,14 @@ import { logger } from "hono/logger";
 import { auth } from "./auth";
 import { checkDatabaseHealth, closeDatabase } from "./db";
 import { validateEnv } from "./env";
+import { registerAllJobs } from "./jobs";
+import { getQueue, stopQueue } from "./lib/queue";
 import { seedDevAccounts } from "./lib/seed-dev";
 import chatRoute from "./routes/chat";
 import checkoutRoute from "./routes/checkout";
 import ordersRoute from "./routes/orders";
 import postsRoute from "./routes/posts";
+import tasksRoute from "./routes/tasks";
 import uploadRoute from "./routes/upload";
 import userRoute from "./routes/user";
 import webhooksRoute from "./routes/webhooks";
@@ -131,7 +134,8 @@ const app = baseApp
   .route("/api/webhooks", webhooksRoute)
   .route("/api/user", userRoute)
   .route("/api/upload", uploadRoute)
-  .route("/api/chat", chatRoute);
+  .route("/api/chat", chatRoute)
+  .route("/api/tasks", tasksRoute);
 
 /**
  * Export the app type for frontend type inference
@@ -148,6 +152,14 @@ if (process.env.NODE_ENV !== "test") {
     fetch: app.fetch,
     port: env.PORT,
   });
+
+  // Start task queue
+  const boss = getQueue();
+  boss
+    .start()
+    .then(() => registerAllJobs(boss))
+    .then(() => console.log("[Queue] Started"))
+    .catch((err: unknown) => console.error("[Queue] Failed to start:", err));
 }
 
 /**
@@ -178,6 +190,10 @@ async function gracefulShutdown(signal: string) {
       });
     });
   }
+
+  // Stop task queue (wait for in-progress jobs)
+  console.log("[Shutdown] Stopping task queue...");
+  await stopQueue();
 
   // Close database connections
   console.log("[Shutdown] Closing database connections...");

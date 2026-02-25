@@ -9,11 +9,14 @@ Morph Template is a full-stack TypeScript monorepo featuring end-to-end type saf
 **Key Technology Stack:**
 - **Backend**: Hono (web framework) + Drizzle ORM + PostgreSQL + Better Auth
 - **Frontend**: React + Vite + TanStack Query + shadcn/ui + Tailwind CSS
+- **Task Queue**: pg-boss (PostgreSQL-based, zero extra infrastructure)
 - **Payments**: Stripe (Checkout + Webhooks)
 - **AI**: OpenRouter SDK (unified access to 300+ LLMs)
 - **File Storage**: Cloudflare R2 (S3-compatible, frontend direct upload)
 - **Monorepo**: pnpm workspaces + Turborepo
 - **Tooling**: Biome (linting/formatting), TypeScript strict mode
+
+**Architecture Documentation**: See `docs/ARCHITECTURE.md` for comprehensive technical details.
 
 ## Development Commands
 
@@ -277,6 +280,95 @@ uploads/
     └── {timestamp}-{uuid}.{ext}
 ```
 
+### Task Queue (pg-boss)
+
+The template includes a PostgreSQL-based task queue using pg-boss for background job processing. No Redis or additional infrastructure required -- it reuses the existing PostgreSQL database.
+
+**Architecture**:
+- Singleton client pattern (`apps/api/src/lib/queue.ts`) -- same as `stripe.ts`, `r2.ts`, `ai.ts`
+- pg-boss stores jobs in a dedicated `pgboss` schema within PostgreSQL
+- Workers run in the same API process (no separate worker container)
+- Built-in retry, delayed tasks, priority queues, cron scheduling, dead letter queues
+
+**Key Files**:
+- `apps/api/src/lib/queue.ts` -- pg-boss singleton (getQueue)
+- `apps/api/src/jobs/index.ts` -- Registers all job handlers
+- `apps/api/src/jobs/*.ts` -- Individual job definitions
+- `apps/api/src/routes/tasks.ts` -- Task submission + status query API
+- `packages/shared/src/schemas/task.ts` -- Task-related Zod schemas
+
+**Lifecycle**:
+- Started in `index.ts` after server listen: `await boss.start()` + `registerAllJobs(boss)`
+- Stopped during graceful shutdown: `await boss.stop({ graceful: true, timeout: 30000 })`
+
+**Enqueueing Jobs**:
+```typescript
+import { getQueue } from "../lib/queue";
+
+const boss = getQueue();
+await boss.send("ai-generation", {
+  taskId: task.id,
+  userId: session.user.id,
+  model: "some-model",
+  prompt: "...",
+});
+
+// With options
+await boss.send("job-name", payload, {
+  retryLimit: 5,
+  retryDelay: 60,
+  startAfter: 30,           // Delay start by 30 seconds
+  priority: 1,              // Higher = processed first
+  singletonKey: uniqueId,   // Deduplicate by key
+});
+```
+
+**Defining Jobs**:
+```typescript
+// apps/api/src/jobs/my-job.ts
+import type PgBoss from "pg-boss";
+
+interface MyPayload {
+  taskId: string;
+  userId: string;
+}
+
+export function registerMyJob(boss: PgBoss) {
+  boss.work<MyPayload>("my-job", { teamConcurrency: 5 }, async (job) => {
+    // Update status to processing
+    // Do the work
+    // Update status to completed/failed
+    // Throw to trigger retry
+  });
+}
+
+// apps/api/src/jobs/index.ts -- register it
+export async function registerAllJobs(boss: PgBoss) {
+  registerMyJob(boss);
+  // Cron example
+  await boss.schedule("cleanup", "0 3 * * *", {});
+}
+```
+
+**Frontend Task Polling** (TanStack Query):
+```typescript
+const { data: task } = useQuery({
+  queryKey: ["task", taskId],
+  queryFn: async () => {
+    const res = await api.api.tasks[":id"].$get({ param: { id: taskId } });
+    return (await res.json()).data;
+  },
+  enabled: !!taskId,
+  refetchInterval: (query) => {
+    const status = query.state.data?.status;
+    if (status === "completed" || status === "failed") return false;
+    return 2000; // Poll every 2 seconds
+  },
+});
+```
+
+**Configuration**: Uses `DATABASE_URL` (already required). No additional env vars needed.
+
 ### AI Chat (OpenRouter)
 
 The template includes an AI chat endpoint powered by the OpenRouter SDK (`@openrouter/sdk`), providing unified access to 300+ language models.
@@ -316,13 +408,19 @@ morph-template/
 │   │   │   │   ├── webhooks.ts # Stripe webhook handler
 │   │   │   │   ├── user.ts     # User profile & credits (GET + PATCH)
 │   │   │   │   ├── upload.ts   # R2 presigned URL generation
-│   │   │   │   └── chat.ts     # AI chat (streaming SSE + image gen)
+│   │   │   │   ├── chat.ts     # AI chat (streaming SSE + image gen)
+│   │   │   │   └── tasks.ts    # Task submission + status query
+│   │   │   ├── jobs/
+│   │   │   │   ├── index.ts    # Registers all job handlers
+│   │   │   │   ├── ai-generation.ts  # AI generation job
+│   │   │   │   └── cleanup.ts  # Scheduled cleanup job
 │   │   │   ├── db/
-│   │   │   │   ├── schema.ts   # Drizzle schema (user, orders, posts)
+│   │   │   │   ├── schema.ts   # Drizzle schema (user, orders, posts, aiTasks)
 │   │   │   │   └── index.ts    # Database connection + health check
 │   │   │   ├── lib/
 │   │   │   │   ├── response.ts # ok(), err(), errors.* helpers
 │   │   │   │   ├── rate-limit.ts # Sliding window rate limiter + getClientIp
+│   │   │   │   ├── queue.ts    # pg-boss task queue singleton
 │   │   │   │   ├── stripe.ts   # Stripe client singleton
 │   │   │   │   ├── r2.ts       # R2 client + presigned URL generation
 │   │   │   │   ├── ai.ts       # OpenRouter client singleton
@@ -356,7 +454,8 @@ morph-template/
 │           │   ├── order.ts    # Order schemas (with pagination)
 │           │   ├── user.ts     # User update schema
 │           │   ├── upload.ts   # Upload schemas + file type/size constants
-│           │   └── chat.ts     # Chat message & request schemas
+│           │   ├── chat.ts     # Chat message & request schemas
+│           │   └── task.ts     # Task submission + status schemas
 │           ├── config/
 │           │   └── pricing.ts  # Credit packages & pricing config
 │           └── index.ts        # Re-exports all schemas
@@ -453,6 +552,50 @@ const { mutate } = useMutation({
 });
 ```
 
+## Adding Background Jobs
+
+When adding new background jobs, follow this pattern:
+
+### 1. Create Job Handler (apps/api/src/jobs/)
+```typescript
+// apps/api/src/jobs/my-job.ts
+import type PgBoss from "pg-boss";
+import { eq } from "drizzle-orm";
+import { db } from "../db";
+
+interface MyJobPayload {
+  taskId: string;
+  userId: string;
+  // ... other fields
+}
+
+export function registerMyJob(boss: PgBoss) {
+  boss.work<MyJobPayload>("my-job", { teamConcurrency: 5 }, async (job) => {
+    const { taskId } = job.data;
+    // Do the work, throw on failure to trigger retry
+  });
+}
+```
+
+### 2. Register in jobs/index.ts
+```typescript
+import { registerMyJob } from "./my-job";
+
+export async function registerAllJobs(boss: PgBoss) {
+  registerMyJob(boss);
+  // ... other jobs
+}
+```
+
+### 3. Enqueue from Route Handler
+```typescript
+import { getQueue } from "../lib/queue";
+
+// In route handler:
+const boss = getQueue();
+await boss.send("my-job", { taskId: task.id, userId: session.user.id });
+```
+
 ## API Response Helpers
 
 ### Backend Response Helpers
@@ -542,8 +685,9 @@ The server handles SIGTERM/SIGINT signals:
 1. Sets `isShuttingDown = true` (health check returns 503)
 2. Waits 5 seconds for traffic to drain
 3. Closes HTTP server
-4. Closes database connections
-5. Exits cleanly
+4. Stops pg-boss queue (graceful: true, 30s timeout for in-progress jobs)
+5. Closes database connections
+6. Exits cleanly
 
 ### HTTP Proxy Support
 For local development with external APIs through a proxy:

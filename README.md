@@ -9,8 +9,10 @@ A modern, type-safe full-stack monorepo template featuring end-to-end type safet
 - **🔒 End-to-End Type Safety**: Hono's `AppType` + `hono/client` for seamless frontend-backend type inference
 - **📦 Monorepo Architecture**: pnpm workspaces + Turborepo for efficient builds and caching
 - **🔐 Built-in Authentication**: Better Auth with Google & GitHub OAuth (social login only)
+- **⏳ Task Queue**: pg-boss (PostgreSQL-based) for background jobs, retries, cron scheduling -- no Redis needed
 - **💳 Credits & Payments**: Stripe integration with checkout sessions, webhooks, and order history
 - **📁 File Upload**: Cloudflare R2 with presigned URLs for direct frontend upload
+- **🤖 AI Integration**: OpenRouter SDK for unified access to 300+ LLMs (streaming + image generation)
 - **🗄️ Modern Database**: PostgreSQL + Drizzle ORM with type-safe queries
 - **⚡ Fast Development**: Vite + Hot Module Replacement + TypeScript strict mode
 - **🎨 Beautiful UI**: shadcn/ui + Tailwind CSS for rapid UI development
@@ -23,11 +25,12 @@ A modern, type-safe full-stack monorepo template featuring end-to-end type safet
 ```
 morph-template/
 ├── apps/
-│   ├── api/              # Backend (Hono + Drizzle + Better Auth + Stripe + R2)
+│   ├── api/              # Backend (Hono + Drizzle + Better Auth + pg-boss)
 │   │   ├── src/
 │   │   │   ├── db/       # Database schemas and connection
-│   │   │   ├── routes/   # API routes (posts, checkout, orders, webhooks, upload)
-│   │   │   ├── lib/      # Utilities (response helpers, stripe, r2 client)
+│   │   │   ├── routes/   # API routes (posts, checkout, orders, tasks, ...)
+│   │   │   ├── jobs/     # pg-boss job handlers (AI generation, cleanup, ...)
+│   │   │   ├── lib/      # Service singletons (queue, stripe, r2, ai, ...)
 │   │   │   ├── auth.ts   # Better Auth configuration
 │   │   │   ├── env.ts    # Environment variable validation
 │   │   │   └── index.ts  # Main app (exports AppType)
@@ -647,6 +650,63 @@ Zeabur provides built-in:
 - Verify `zeabur.json` configuration
 
 </details>
+
+## ⏳ Task Queue (pg-boss)
+
+This template includes a PostgreSQL-based task queue for background job processing. No Redis or additional infrastructure required.
+
+### Features
+
+- **Retry with backoff** -- Failed jobs are automatically retried
+- **Cron scheduling** -- Schedule recurring jobs (e.g., cleanup, reports)
+- **Priority queues** -- Higher priority jobs are processed first
+- **Concurrency control** -- Limit concurrent job execution
+- **Dead letter queue** -- Failed jobs after max retries are archived
+- **Deduplication** -- Prevent duplicate job submission
+
+### Example: Submit a Background Task
+
+```typescript
+// Backend: enqueue a job from any route handler
+import { getQueue } from "../lib/queue";
+
+const boss = getQueue();
+await boss.send("ai-generation", {
+  taskId: task.id,
+  userId: session.user.id,
+  model: "some-model",
+  prompt: "Generate an image of...",
+});
+```
+
+### Example: Define a Job Handler
+
+```typescript
+// apps/api/src/jobs/my-job.ts
+export function registerMyJob(boss: PgBoss) {
+  boss.work("my-job", { teamConcurrency: 5 }, async (job) => {
+    // Process the job
+    // Throw an error to trigger automatic retry
+  });
+}
+```
+
+### Frontend Task Polling
+
+```typescript
+// Auto-polls until task completes or fails
+const { data: task } = useQuery({
+  queryKey: ["task", taskId],
+  queryFn: () => fetchTask(taskId),
+  refetchInterval: (query) => {
+    const status = query.state.data?.status;
+    if (status === "completed" || status === "failed") return false;
+    return 2000; // Poll every 2 seconds
+  },
+});
+```
+
+For detailed architecture information, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## 📖 Tech Stack Documentation
 
