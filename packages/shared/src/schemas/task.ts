@@ -1,38 +1,23 @@
 import { z } from "zod";
+import { aiTaskStatusSchema } from "./ai-provider";
 
 /**
- * Task status enum
+ * Schema for querying a task by ID (path param)
  */
-export const taskStatusSchema = z.enum(["pending", "processing", "completed", "failed"]);
-export type TaskStatus = z.infer<typeof taskStatusSchema>;
-
-/**
- * Schema for submitting a new task
- */
-export const submitTaskSchema = z.object({
-  type: z.string().min(1),
-  payload: z.record(z.unknown()).default({}),
-});
-
-export type SubmitTask = z.infer<typeof submitTaskSchema>;
-
-/**
- * Schema for querying a task by ID
- */
-export const taskIdSchema = z.object({
+export const taskIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 
-export type TaskId = z.infer<typeof taskIdSchema>;
+export type TaskIdParam = z.infer<typeof taskIdParamSchema>;
 
 /**
  * Schema for listing tasks with pagination and optional filters
  */
-export const listTasksSchema = z.object({
+export const listTasksQuerySchema = z.object({
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(10),
-  status: taskStatusSchema.optional(),
+  status: aiTaskStatusSchema.optional(),
   type: z.string().optional(),
 });
 
-export type ListTasks = z.infer<typeof listTasksSchema>;
+export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;

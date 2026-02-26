@@ -1,10 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
-import { listTasksSchema, submitTaskSchema, taskIdSchema } from "@repo/shared";
+import { createAITaskSchema, listTasksQuerySchema, taskIdParamSchema } from "@repo/shared";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { auth } from "../auth";
 import { db } from "../db";
 import { aiTasks } from "../db/schema";
+import { isAIConfigured } from "../lib/ai";
 import { getQueue } from "../lib/queue";
 import {
   AI_GENERATION_LIMIT,
@@ -15,16 +16,19 @@ import { errors, ok } from "../lib/response";
 
 const tasksRoute = new Hono()
   /**
-   * Submit a new task
-   * Validates input, creates a DB record, and enqueues the job
+   * Submit a new AI generation task
+   * Creates a DB record and enqueues the job for background processing
    */
-  .post("/", zValidator("json", submitTaskSchema), async (c) => {
+  .post("/", zValidator("json", createAITaskSchema), async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
       return errors.unauthorized(c);
     }
 
-    // Rate limit
+    if (!isAIConfigured()) {
+      return errors.serviceUnavailable(c, "AI is not configured");
+    }
+
     const rateLimit = checkRateLimit(
       getAIGenerationRateLimitKey(session.user.id),
       AI_GENERATION_LIMIT,
@@ -33,27 +37,40 @@ const tasksRoute = new Hono()
       return errors.tooManyRequests(c);
     }
 
-    const { type, payload } = c.req.valid("json");
+    const data = c.req.valid("json");
 
-    // Create task record in database
+    // Create task record
     const [task] = await db
       .insert(aiTasks)
       .values({
         userId: session.user.id,
-        provider: (payload.provider as string) || "default",
-        type,
-        model: (payload.model as string) || "default",
-        prompt: (payload.prompt as string) || "",
+        provider: data.provider,
+        type: data.type,
+        model: data.model,
+        prompt: data.prompt,
+        negativePrompt: data.negativePrompt,
+        aspectRatio: data.aspectRatio,
+        duration: data.duration,
+        mode: data.mode,
+        inputImageUrl: data.imageUrl,
         status: "pending",
       })
       .returning();
 
     // Enqueue the job
     const boss = getQueue();
-    await boss.send(type, {
+    await boss.send("ai-generation", {
       taskId: task.id,
       userId: session.user.id,
-      ...payload,
+      provider: data.provider,
+      type: data.type,
+      model: data.model,
+      prompt: data.prompt,
+      negativePrompt: data.negativePrompt,
+      aspectRatio: data.aspectRatio,
+      duration: data.duration,
+      mode: data.mode,
+      imageUrl: data.imageUrl,
     });
 
     return ok(c, { task }, 201);
@@ -61,9 +78,8 @@ const tasksRoute = new Hono()
 
   /**
    * Get a single task by ID
-   * Only returns tasks owned by the authenticated user
    */
-  .get("/:id", zValidator("param", taskIdSchema), async (c) => {
+  .get("/:id", zValidator("param", taskIdParamSchema), async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
       return errors.unauthorized(c);
@@ -85,7 +101,7 @@ const tasksRoute = new Hono()
   /**
    * List tasks with pagination and optional filters
    */
-  .get("/", zValidator("query", listTasksSchema), async (c) => {
+  .get("/", zValidator("query", listTasksQuerySchema), async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) {
       return errors.unauthorized(c);
@@ -94,7 +110,6 @@ const tasksRoute = new Hono()
     const { page, limit, status, type } = c.req.valid("query");
     const offset = (page - 1) * limit;
 
-    // Build where conditions
     const conditions = [eq(aiTasks.userId, session.user.id)];
     if (status) {
       conditions.push(eq(aiTasks.status, status));
