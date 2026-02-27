@@ -79,7 +79,7 @@ export function BillingPage() {
               {isLoadingUser ? (
                 <span className="text-muted-foreground">...</span>
               ) : (
-                (userData?.credits.toLocaleString() ?? 0)
+                (userData?.credits?.total?.toLocaleString() ?? 0)
               )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">credits available</p>

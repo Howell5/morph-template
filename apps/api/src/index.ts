@@ -32,10 +32,13 @@ import { validateEnv } from "./env";
 import { registerAllJobs } from "./jobs";
 import { getQueue, stopQueue } from "./lib/queue";
 import { seedDevAccounts } from "./lib/seed-dev";
+import adminRoute from "./routes/admin";
 import chatRoute from "./routes/chat";
 import checkoutRoute from "./routes/checkout";
+import feedbackRoute from "./routes/feedback";
 import ordersRoute from "./routes/orders";
 import postsRoute from "./routes/posts";
+import referralRoute from "./routes/referral";
 import tasksRoute from "./routes/tasks";
 import uploadRoute from "./routes/upload";
 import userRoute from "./routes/user";
@@ -135,7 +138,10 @@ const app = baseApp
   .route("/api/user", userRoute)
   .route("/api/upload", uploadRoute)
   .route("/api/chat", chatRoute)
-  .route("/api/tasks", tasksRoute);
+  .route("/api/tasks", tasksRoute)
+  .route("/api/admin", adminRoute)
+  .route("/api/referral", referralRoute)
+  .route("/api/feedback", feedbackRoute);
 
 /**
  * Export the app type for frontend type inference

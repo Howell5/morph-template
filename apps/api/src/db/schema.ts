@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 /**
  * Users table
@@ -14,7 +14,29 @@ export const user = pgTable("user", {
     withTimezone: true,
   }),
   image: text("image"),
-  credits: integer("credits").notNull().default(0),
+  role: text("role").notNull().default("user"),
+  // Three-pool credits system
+  dailyCredits: integer("daily_credits").notNull().default(0),
+  dailyCreditsResetAt: timestamp("daily_credits_reset_at", { mode: "date", withTimezone: true }),
+  subscriptionCredits: integer("subscription_credits").notNull().default(0),
+  subscriptionCreditsResetAt: timestamp("subscription_credits_reset_at", {
+    mode: "date",
+    withTimezone: true,
+  }),
+  bonusCredits: integer("bonus_credits").notNull().default(0),
+  // Subscription state
+  subscriptionTier: text("subscription_tier").notNull().default("free"),
+  subscriptionExpiresAt: timestamp("subscription_expires_at", {
+    mode: "date",
+    withTimezone: true,
+  }),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  // Referral tracking
+  referralCreditsThisMonth: integer("referral_credits_this_month").notNull().default(0),
+  totalReferralCredits: integer("total_referral_credits").notNull().default(0),
+  totalReferrals: integer("total_referrals").notNull().default(0),
+  // Timestamps
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
 });
@@ -146,6 +168,63 @@ export const aiTasks = pgTable("ai_tasks", {
 });
 
 /**
+ * Credit Records table
+ * Audit trail for all credit changes
+ */
+export const creditRecords = pgTable("credit_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // signup_bonus | daily_login | generation | purchase | subscription_reset | admin_grant | referral_inviter | referral_invitee
+  amount: integer("amount").notNull(), // positive = earned, negative = consumed
+  balanceBefore: integer("balance_before").notNull(),
+  balanceAfter: integer("balance_after").notNull(),
+  creditPool: text("credit_pool").notNull(), // daily | subscription | bonus | mixed
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Referrals table
+ * Tracks referral relationships and rewards
+ */
+export const referrals = pgTable("referrals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  referrerId: text("referrer_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  referredId: text("referred_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  referrerCredits: integer("referrer_credits").notNull(),
+  referredCredits: integer("referred_credits").notNull(),
+  status: text("status").notNull().default("pending"), // pending | completed
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Feedback table
+ * Bug reports, feature requests, and general feedback
+ */
+export const feedback = pgTable("feedback", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // bug | feature | general
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  screenshotUrl: text("screenshot_url"),
+  status: text("status").notNull().default("open"), // open | in_progress | resolved | closed
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * Relations
  */
 export const userRelations = relations(user, ({ many }) => ({
@@ -154,6 +233,8 @@ export const userRelations = relations(user, ({ many }) => ({
   accounts: many(account),
   orders: many(orders),
   aiTasks: many(aiTasks),
+  creditRecords: many(creditRecords),
+  feedback: many(feedback),
 }));
 
 export const postsRelations = relations(posts, ({ one }) => ({
@@ -187,6 +268,27 @@ export const ordersRelations = relations(orders, ({ one }) => ({
 export const aiTasksRelations = relations(aiTasks, ({ one }) => ({
   user: one(user, {
     fields: [aiTasks.userId],
+    references: [user.id],
+  }),
+}));
+
+export const creditRecordsRelations = relations(creditRecords, ({ one }) => ({
+  user: one(user, {
+    fields: [creditRecords.userId],
+    references: [user.id],
+  }),
+}));
+
+export const referralsRelations = relations(referrals, ({ one }) => ({
+  referrer: one(user, {
+    fields: [referrals.referrerId],
+    references: [user.id],
+  }),
+}));
+
+export const feedbackRelations = relations(feedback, ({ one }) => ({
+  user: one(user, {
+    fields: [feedback.userId],
     references: [user.id],
   }),
 }));

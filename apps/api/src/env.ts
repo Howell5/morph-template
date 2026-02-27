@@ -26,6 +26,11 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET_NAME: z.string().optional(),
   R2_PUBLIC_URL: z.string().url().optional(),
+  // Cloudflare Turnstile (optional in development)
+  TURNSTILE_SECRET_KEY: z.string().optional(),
+  // Resend email (optional in development)
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM_EMAIL: z.string().email().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

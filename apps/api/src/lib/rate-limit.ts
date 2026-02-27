@@ -125,6 +125,15 @@ export const AI_GENERATION_LIMIT: RateLimitConfig = {
   maxRequests: 10,
 };
 
+/**
+ * Feedback rate limit per user
+ * 5 submissions per hour
+ */
+export const FEEDBACK_LIMIT: RateLimitConfig = {
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxRequests: 5,
+};
+
 // =============================================================================
 // Rate Limit Key Generators
 // =============================================================================

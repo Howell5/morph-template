@@ -10,11 +10,14 @@ Morph Template is a full-stack TypeScript monorepo featuring end-to-end type saf
 - **Backend**: Hono (web framework) + Drizzle ORM + PostgreSQL + Better Auth
 - **Frontend**: React + Vite + TanStack Query + shadcn/ui + Tailwind CSS
 - **Task Queue**: pg-boss (PostgreSQL-based, zero extra infrastructure)
-- **Payments**: Stripe (Checkout + Webhooks)
+- **Payments**: Stripe (Checkout + Webhooks + Subscriptions)
+- **Credits**: Three-pool system (daily/subscription/bonus) with audit trail
 - **AI**: OpenRouter SDK (unified access to 300+ LLMs)
 - **File Storage**: Cloudflare R2 (S3-compatible, frontend direct upload)
+- **Email**: Resend (transactional emails, optional in dev)
+- **Bot Protection**: Cloudflare Turnstile (optional in dev)
 - **Monorepo**: pnpm workspaces + Turborepo
-- **Tooling**: Biome (linting/formatting), TypeScript strict mode
+- **Tooling**: Biome (linting/formatting), Vitest (testing), TypeScript strict mode
 
 **Architecture Documentation**: See `docs/ARCHITECTURE.md` for comprehensive technical details.
 
@@ -183,30 +186,43 @@ Better Auth provides session-based authentication:
 - The login page (`apps/web/src/pages/login.tsx`) shows a pre-filled email/password form in dev mode (using `import.meta.env.DEV`)
 - No OAuth credentials needed for local development
 
-### Credits & Payments System
+### Credits System (Three-Pool)
 
-The template includes a complete credits-based payment system using Stripe:
+The template uses a three-pool credits system for flexible monetization:
+
+**Three Pools** (consumption priority: daily → subscription → bonus):
+1. **Daily credits** (50/day) - Login reward, expires at UTC midnight
+2. **Subscription credits** - Based on tier (starter: 1300, pro: 2700, max: 30000), resets on renewal
+3. **Bonus credits** - From purchases, referrals, admin grants - never expire
+
+**Key Files**:
+- `packages/shared/src/config/credits.ts` - CREDITS_CONFIG constants
+- `apps/api/src/lib/credits-service.ts` - Core logic (getUserCreditsBalance, consumeCredits, grantDailyLoginReward)
+- `apps/api/src/lib/credits-admin.ts` - Admin grant operations
+- `apps/api/src/lib/credit-records.ts` - Audit trail for all credit changes
+- `apps/api/src/lib/entitlements.ts` - Feature gating by subscription tier (cached 5 min)
+
+**Database** (user table columns):
+- `dailyCredits`, `dailyCreditsResetAt` - Daily pool
+- `subscriptionCredits`, `subscriptionCreditsResetAt` - Subscription pool
+- `bonusCredits` - Bonus pool
+- `subscriptionTier`, `subscriptionExpiresAt` - Subscription state
+- `creditRecords` table - Full audit trail of all credit changes
+
+### Payments & Subscriptions (Stripe)
 
 **Credit Packages** (`packages/shared/src/config/pricing.ts`):
-- Hardcoded pricing tiers (Starter, Professional, Enterprise)
-- Shared between backend and frontend via `@repo/shared`
-- Helper functions: `getCreditPackage()`, `formatPrice()`
+- Small (100/$5), Medium (250/$10), Large (600/$20)
+- Purchased credits go to bonus pool (never expire)
 
-**Database**:
-- `user.credits` - Integer field tracking user's credit balance
-- `orders` table - Tracks all credit purchase transactions
+**Subscription Plans**: Free, Starter ($12/mo), Pro ($24/mo), Max ($240/mo)
 
 **API Routes**:
-- `POST /api/checkout` - Creates Stripe Checkout session for purchasing credits
-- `GET /api/orders` - Returns user's order history
-- `POST /api/webhooks/stripe` - Handles Stripe webhook events
-
-**Stripe Webhook Flow** (`apps/api/src/routes/webhooks.ts`):
-1. Verify webhook signature using `STRIPE_WEBHOOK_SECRET`
-2. Handle `checkout.session.completed` event
-3. Use database transaction for atomicity
-4. Idempotency check via `stripeSessionId` to prevent duplicate processing
-5. Create order record and increment user credits
+- `POST /api/checkout` - One-time credit purchase
+- `POST /api/checkout/subscription` - Create subscription checkout
+- `POST /api/checkout/manage` - Stripe billing portal URL
+- `GET /api/orders` - Order history
+- `POST /api/webhooks/stripe` - Handles checkout.session.completed, customer.subscription.created/updated/deleted
 
 **Configuration** (optional in development):
 ```bash
@@ -214,17 +230,46 @@ STRIPE_SECRET_KEY=sk_test_...      # Stripe secret key
 STRIPE_WEBHOOK_SECRET=whsec_...    # Webhook signing secret
 ```
 
-**Example: Creating Checkout Session**:
-```typescript
-// Frontend
-const response = await api.api.checkout.$post({
-  json: { packageId: 'professional' }
-});
-const json = await response.json();
-if (json.success) {
-  window.location.href = json.data.checkoutUrl;  // Redirect to Stripe
-}
-```
+### Admin System
+
+Role-based admin routes (`apps/api/src/routes/admin.ts`):
+- `GET /api/admin/check` - Verify admin status
+- `GET /api/admin/users/search` - Search users by email
+- `POST /api/admin/credits/grant` - Grant bonus credits with audit trail
+- `GET /api/admin/credits/records` - View credit records with filtering
+- `GET /api/admin/feedback` / `PATCH /api/admin/feedback` - Manage user feedback
+
+Admin actions are logged via `apps/api/src/lib/audit-log.ts` (structured JSON).
+
+### Referral System
+
+Viral growth via referral codes (`apps/api/src/routes/referral.ts`):
+- `POST /api/referral/apply` - Apply referral code (both parties get bonus credits)
+- `GET /api/referral/stats` - Referral stats + link
+- `GET /api/referral/history` - Recent referrals
+- Anti-fraud: IP limit (5/IP/day), monthly credit cap (300/month), self-referral prevention
+- Config: `packages/shared/src/config/referral.ts`
+
+### Feedback System
+
+User feedback collection (`apps/api/src/routes/feedback.ts`):
+- `POST /api/feedback` - Submit bug reports/feature requests (rate limited: 5/user/hour)
+- Admin management via `/api/admin/feedback` routes
+
+### Cloudflare Turnstile (Bot Protection)
+
+Server-side bot verification (`apps/api/src/lib/turnstile.ts`):
+- `verifyTurnstile(token, options?)` - Verify Turnstile token
+- Graceful degradation: allows through on timeout, skips when no secret key (dev mode)
+- Config: `TURNSTILE_SECRET_KEY` env var (optional)
+
+### Email Service (Resend)
+
+Transactional emails (`apps/api/src/lib/email.ts`):
+- `sendEmail(to, subject, html)` - Generic email sending
+- `sendWelcomeEmail(to, name)` - Welcome email template
+- Optional in dev: skips when `RESEND_API_KEY` not set
+- Config: `RESEND_API_KEY`, `RESEND_FROM_EMAIL` env vars (optional)
 
 ### File Upload (Cloudflare R2)
 
@@ -403,13 +448,16 @@ morph-template/
 │   │   ├── src/
 │   │   │   ├── routes/
 │   │   │   │   ├── posts.ts    # Posts CRUD
-│   │   │   │   ├── checkout.ts # Stripe checkout session creation
+│   │   │   │   ├── checkout.ts # Stripe checkout (credits + subscriptions)
 │   │   │   │   ├── orders.ts   # User order history (with pagination)
-│   │   │   │   ├── webhooks.ts # Stripe webhook handler
-│   │   │   │   ├── user.ts     # User profile & credits (GET + PATCH)
+│   │   │   │   ├── webhooks.ts # Stripe webhook handler (checkout + subscriptions)
+│   │   │   │   ├── user.ts     # User profile, credits, subscription, usage history
 │   │   │   │   ├── upload.ts   # R2 presigned URL generation
 │   │   │   │   ├── chat.ts     # AI chat (streaming SSE + image gen)
-│   │   │   │   └── tasks.ts    # Task submission + status query
+│   │   │   │   ├── tasks.ts    # Task submission + status query
+│   │   │   │   ├── admin.ts    # Admin: user search, credit grant, audit
+│   │   │   │   ├── referral.ts # Referral system with anti-fraud
+│   │   │   │   └── feedback.ts # User feedback submission
 │   │   │   ├── jobs/
 │   │   │   │   ├── index.ts    # Registers all job handlers
 │   │   │   │   ├── ai-generation.ts  # AI generation job
@@ -420,6 +468,14 @@ morph-template/
 │   │   │   ├── lib/
 │   │   │   │   ├── response.ts # ok(), err(), errors.* helpers
 │   │   │   │   ├── rate-limit.ts # Sliding window rate limiter + getClientIp
+│   │   │   │   ├── credits-service.ts # Three-pool credits system
+│   │   │   │   ├── credits-admin.ts   # Admin credit operations
+│   │   │   │   ├── credit-records.ts  # Credit audit trail
+│   │   │   │   ├── entitlements.ts    # Feature gating by subscription tier
+│   │   │   │   ├── referral-service.ts # Referral code logic + anti-fraud
+│   │   │   │   ├── audit-log.ts   # Admin action logging
+│   │   │   │   ├── turnstile.ts   # Cloudflare Turnstile verification
+│   │   │   │   ├── email.ts       # Resend email service
 │   │   │   │   ├── queue.ts    # pg-boss task queue singleton
 │   │   │   │   ├── stripe.ts   # Stripe client singleton
 │   │   │   │   ├── r2.ts       # R2 client + presigned URL generation
@@ -455,9 +511,16 @@ morph-template/
 │           │   ├── user.ts     # User update schema
 │           │   ├── upload.ts   # Upload schemas + file type/size constants
 │           │   ├── chat.ts     # Chat message & request schemas
-│           │   └── task.ts     # Task submission + status schemas
+│           │   ├── task.ts     # Task submission + status schemas
+│           │   ├── subscription.ts # Subscription tiers, plans, pricing
+│           │   ├── credit-record.ts # Credit audit trail schemas
+│           │   ├── admin.ts    # Admin operation schemas
+│           │   ├── referral.ts # Referral code schemas
+│           │   └── feedback.ts # Feedback submission schemas
 │           ├── config/
-│           │   └── pricing.ts  # Credit packages & pricing config
+│           │   ├── pricing.ts  # Subscription plans & credit packages
+│           │   ├── credits.ts  # Three-pool credits config
+│           │   └── referral.ts # Referral system config
 │           └── index.ts        # Re-exports all schemas
 └── scripts/
     └── check-file-lines.ts     # File line count checker (max 500)
@@ -773,6 +836,13 @@ R2_ACCESS_KEY_ID=xxx                # R2 API token access key
 R2_SECRET_ACCESS_KEY=xxx            # R2 API token secret key
 R2_BUCKET_NAME=xxx                  # R2 bucket name
 R2_PUBLIC_URL=https://xxx.r2.dev   # Optional: custom public URL
+
+# Cloudflare Turnstile (optional in development)
+TURNSTILE_SECRET_KEY=xxx            # Turnstile secret key
+
+# Resend email (optional in development)
+RESEND_API_KEY=re_xxx               # Resend API key
+RESEND_FROM_EMAIL=noreply@example.com  # Sender email address
 
 # Optional: HTTP proxy for external API calls
 HTTPS_PROXY=http://127.0.0.1:7890
