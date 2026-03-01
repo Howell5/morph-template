@@ -6,6 +6,7 @@ import { ROUTES } from "@/lib/routes";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { CreditCard, History, Settings, Zap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 const fadeInUp = {
@@ -14,6 +15,8 @@ const fadeInUp = {
 };
 
 export function DashboardPage() {
+  const { t } = useTranslation("dashboard");
+  const { t: tc } = useTranslation("common");
   const { data: session } = useSession();
 
   const { data: userData, isLoading } = useQuery({
@@ -30,20 +33,20 @@ export function DashboardPage() {
 
   const quickActions = [
     {
-      title: "Buy Credits",
-      description: "Purchase more credits to continue using our services",
+      title: t("buyCredits"),
+      description: t("buyCreditsDesc"),
       icon: CreditCard,
       href: ROUTES.BILLING,
     },
     {
-      title: "Order History",
-      description: "View your past purchases and transactions",
+      title: t("orderHistory"),
+      description: t("orderHistoryDesc"),
       icon: History,
       href: ROUTES.ORDERS,
     },
     {
-      title: "Settings",
-      description: "Manage your account settings and preferences",
+      title: tc("nav.settings"),
+      description: t("settingsDesc"),
       icon: Settings,
       href: ROUTES.SETTINGS,
     },
@@ -58,8 +61,10 @@ export function DashboardPage() {
         animate="animate"
         transition={{ duration: 0.4 }}
       >
-        <h1 className="text-3xl font-bold">Welcome back, {session?.user.name}</h1>
-        <p className="mt-2 text-muted-foreground">Here's an overview of your account</p>
+        <h1 className="text-3xl font-bold">
+          {session?.user.name ? t("welcome", { name: session.user.name }) : t("welcomeDefault")}
+        </h1>
+        <p className="mt-2 text-muted-foreground">{t("overview")}</p>
       </motion.div>
 
       {/* Credits Card */}
@@ -71,7 +76,7 @@ export function DashboardPage() {
       >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Available Credits</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("creditsBalance")}</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -82,11 +87,8 @@ export function DashboardPage() {
                 (userData?.credits?.total?.toLocaleString() ?? 0)
               )}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Credits are used to access premium features
-            </p>
             <Button asChild className="mt-4" size="sm">
-              <Link to={ROUTES.BILLING}>Get More Credits</Link>
+              <Link to={ROUTES.BILLING}>{t("buyCredits")}</Link>
             </Button>
           </CardContent>
         </Card>
@@ -99,7 +101,7 @@ export function DashboardPage() {
         animate="animate"
         transition={{ duration: 0.4, delay: 0.2 }}
       >
-        <h2 className="mb-4 text-xl font-semibold">Quick Actions</h2>
+        <h2 className="mb-4 text-xl font-semibold">{t("quickActions")}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {quickActions.map((action) => (
             <Link key={action.href} to={action.href}>

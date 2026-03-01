@@ -4,8 +4,12 @@ import { api } from "@/lib/api";
 import { formatPrice } from "@repo/shared";
 import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function OrdersPage() {
+  const { t } = useTranslation("dashboard");
+  const { t: tc } = useTranslation("common");
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["orders"],
     queryFn: async () => {
@@ -21,11 +25,11 @@ export function OrdersPage() {
   });
 
   if (isLoading) {
-    return <p className="text-muted-foreground">Loading orders...</p>;
+    return <p className="text-muted-foreground">{tc("status.loading")}</p>;
   }
 
   if (error) {
-    return <p className="text-destructive">Error: {error.message}</p>;
+    return <p className="text-destructive">{error.message}</p>;
   }
 
   const getStatusBadge = (status: string) => {
@@ -34,21 +38,21 @@ export function OrdersPage() {
         return (
           <Badge variant="default" className="gap-1">
             <CheckCircle2 className="h-3 w-3" />
-            Completed
+            {tc("status.completed")}
           </Badge>
         );
       case "pending":
         return (
           <Badge variant="secondary" className="gap-1">
             <Clock className="h-3 w-3" />
-            Pending
+            {tc("status.pending")}
           </Badge>
         );
       case "failed":
         return (
           <Badge variant="destructive" className="gap-1">
             <XCircle className="h-3 w-3" />
-            Failed
+            {tc("status.failed")}
           </Badge>
         );
       default:
@@ -58,12 +62,12 @@ export function OrdersPage() {
 
   return (
     <div>
-      <h1 className="mb-8 text-3xl font-bold">Order History</h1>
+      <h1 className="mb-8 text-3xl font-bold">{t("orders.title")}</h1>
 
       {data?.orders.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            No orders yet. Purchase credits to get started!
+            {t("orders.noOrders")}
           </CardContent>
         </Card>
       ) : (
@@ -79,21 +83,17 @@ export function OrdersPage() {
               <CardContent>
                 <div className="grid gap-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Amount:</span>
+                    <span className="text-muted-foreground">{t("orders.amount")}:</span>
                     <span className="font-medium">{formatPrice(order.amount, order.currency)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Package:</span>
-                    <span className="font-medium">{order.packageId}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date:</span>
+                    <span className="text-muted-foreground">{t("orders.date")}:</span>
                     <span className="font-medium">
                       {new Date(order.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Transaction ID:</span>
+                    <span className="text-muted-foreground">{t("orders.transactionId")}:</span>
                     <span className="font-mono text-xs">{order.id}</span>
                   </div>
                 </div>

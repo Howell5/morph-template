@@ -16,10 +16,12 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@repo/shared": ["../../packages/shared/src/index.ts"],
+      "@repo/shared/locales/*": ["../../packages/shared/src/locales/*"],
       "@repo/api": ["../../apps/api/src/index.ts"],
       "@repo/api/client": ["../../apps/api/src/client.ts"]
     }

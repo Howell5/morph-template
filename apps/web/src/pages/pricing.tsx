@@ -12,8 +12,10 @@ import { useSession } from "@/lib/auth-client";
 import { CREDIT_PACKAGES, formatPrice } from "@repo/shared";
 import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export function PricingPage() {
+  const { t } = useTranslation("common");
   const { data: session } = useSession();
 
   const checkoutMutation = useMutation({
@@ -28,28 +30,20 @@ export function PricingPage() {
       return json.data;
     },
     onSuccess: (data) => {
-      // Redirect to Stripe Checkout
       window.location.href = data.checkoutUrl;
-    },
-    onError: (error) => {
-      console.error("Checkout error:", error);
-      alert(`Failed to create checkout: ${error.message}`);
     },
   });
 
   const handlePurchase = (packageId: string) => {
-    if (!session) {
-      alert("Please sign in to purchase credits");
-      return;
-    }
+    if (!session) return;
     checkoutMutation.mutate(packageId);
   };
 
   return (
     <div className="container mx-auto py-12">
       <div className="mb-12 text-center">
-        <h1 className="mb-4 text-4xl font-bold">Choose Your Credit Package</h1>
-        <p className="text-lg text-muted-foreground">Select the perfect plan for your needs</p>
+        <h1 className="mb-4 text-4xl font-bold">{t("pricing.title")}</h1>
+        <p className="text-lg text-muted-foreground">{t("pricing.subtitle")}</p>
       </div>
 
       <div className="grid gap-8 md:grid-cols-3">
@@ -58,7 +52,7 @@ export function PricingPage() {
             <CardHeader>
               {pkg.popular && (
                 <div className="mb-2 inline-block rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
-                  Most Popular
+                  {t("landing.mostPopular")}
                 </div>
               )}
               <CardTitle className="text-2xl">{pkg.name}</CardTitle>
@@ -75,11 +69,11 @@ export function PricingPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                  <span>Never expires</span>
+                  <span>{t("pricing.neverExpire")}</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                  <span>Secure payment</span>
+                  <span>{t("pricing.securePayment")}</span>
                 </li>
               </ul>
             </CardContent>
@@ -90,7 +84,7 @@ export function PricingPage() {
                 disabled={checkoutMutation.isPending}
                 variant={pkg.popular ? "default" : "outline"}
               >
-                {checkoutMutation.isPending ? "Processing..." : "Purchase"}
+                {checkoutMutation.isPending ? t("actions.processing") : t("actions.purchase")}
               </Button>
             </CardFooter>
           </Card>

@@ -7,6 +7,7 @@ import { useSession } from "@/lib/auth-client";
 import { ROUTES } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { Menu } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 interface PublicHeaderProps {
@@ -14,6 +15,7 @@ interface PublicHeaderProps {
 }
 
 export function PublicHeader({ transparent = false }: PublicHeaderProps) {
+  const { t } = useTranslation("common");
   const { data: session, isPending } = useSession();
   const scrolled = useScroll(10);
 
@@ -38,7 +40,7 @@ export function PublicHeader({ transparent = false }: PublicHeaderProps) {
             to={ROUTES.PRICING}
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Pricing
+            {t("nav.pricing")}
           </Link>
         </nav>
 
@@ -49,14 +51,14 @@ export function PublicHeader({ transparent = false }: PublicHeaderProps) {
           {/* Desktop Auth Buttons */}
           <div className="hidden items-center gap-2 md:flex">
             {isPending ? (
-              <span className="text-sm text-muted-foreground">Loading...</span>
+              <span className="text-sm text-muted-foreground">{t("status.loading")}</span>
             ) : session ? (
               <Button asChild size="sm">
-                <Link to={ROUTES.DASHBOARD}>Dashboard</Link>
+                <Link to={ROUTES.DASHBOARD}>{t("nav.dashboard")}</Link>
               </Button>
             ) : (
               <Button size="sm" asChild>
-                <Link to={ROUTES.LOGIN}>Sign In</Link>
+                <Link to={ROUTES.LOGIN}>{t("actions.signIn")}</Link>
               </Button>
             )}
           </div>
@@ -75,18 +77,18 @@ export function PublicHeader({ transparent = false }: PublicHeaderProps) {
                   to={ROUTES.PRICING}
                   className="text-lg font-medium transition-colors hover:text-foreground"
                 >
-                  Pricing
+                  {t("nav.pricing")}
                 </Link>
                 <div className="my-4 h-px bg-border" />
                 {isPending ? (
-                  <span className="text-muted-foreground">Loading...</span>
+                  <span className="text-muted-foreground">{t("status.loading")}</span>
                 ) : session ? (
                   <Button asChild>
-                    <Link to={ROUTES.DASHBOARD}>Dashboard</Link>
+                    <Link to={ROUTES.DASHBOARD}>{t("nav.dashboard")}</Link>
                   </Button>
                 ) : (
                   <Button asChild>
-                    <Link to={ROUTES.LOGIN}>Sign In</Link>
+                    <Link to={ROUTES.LOGIN}>{t("actions.signIn")}</Link>
                   </Button>
                 )}
               </nav>

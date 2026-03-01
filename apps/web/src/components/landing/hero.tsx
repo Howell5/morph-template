@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/routes";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 const fadeInUp = {
@@ -9,6 +10,8 @@ const fadeInUp = {
 };
 
 export function Hero() {
+  const { t } = useTranslation("common");
+
   return (
     <section className="relative overflow-hidden py-24 md:py-32 lg:py-40">
       <div className="container mx-auto px-4">
@@ -20,9 +23,7 @@ export function Hero() {
             animate="animate"
             transition={{ duration: 0.5 }}
           >
-            Build your SaaS
-            <br />
-            <span className="text-muted-foreground">in record time</span>
+            {t("landing.heroTitle")}
           </motion.h1>
 
           <motion.p
@@ -32,8 +33,7 @@ export function Hero() {
             animate="animate"
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            A modern full-stack template with authentication, payments, and everything you need to
-            launch your next project.
+            {t("landing.heroSubtitle")}
           </motion.p>
 
           <motion.div
@@ -44,10 +44,10 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <Button asChild size="lg" className="min-w-[160px]">
-              <Link to={ROUTES.LOGIN}>Get Started</Link>
+              <Link to={ROUTES.LOGIN}>{t("actions.getStarted")}</Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="min-w-[160px]">
-              <Link to={ROUTES.PRICING}>View Pricing</Link>
+              <Link to={ROUTES.PRICING}>{t("actions.viewPricing")}</Link>
             </Button>
           </motion.div>
         </div>
@@ -80,9 +80,6 @@ export function Hero() {
                 <div className="flex h-full items-center justify-center">
                   <div className="text-center">
                     <div className="text-6xl opacity-20">📊</div>
-                    <p className="mt-4 text-sm text-muted-foreground">
-                      Product screenshot placeholder
-                    </p>
                   </div>
                 </div>
               </div>

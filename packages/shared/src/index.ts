@@ -48,3 +48,6 @@ export * from "./config/credits";
 
 // Referral config
 export * from "./config/referral";
+
+// i18n config
+export * from "./i18n";

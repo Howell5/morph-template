@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { CheckCircle2, User, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -16,6 +17,8 @@ const fadeInUp = {
 };
 
 export function SettingsPage() {
+  const { t } = useTranslation("dashboard");
+  const { t: tc } = useTranslation("common");
   const { data: session, refetch: refetchSession } = useSession();
   const queryClient = useQueryClient();
   const [name, setName] = useState(session?.user.name || "");
@@ -41,10 +44,8 @@ export function SettingsPage() {
     },
     onSuccess: () => {
       setSaveStatus("success");
-      // Invalidate user queries and refetch session
       queryClient.invalidateQueries({ queryKey: ["user", "me"] });
       refetchSession();
-      // Reset status after 3 seconds
       setTimeout(() => setSaveStatus("idle"), 3000);
     },
     onError: () => {
@@ -66,8 +67,8 @@ export function SettingsPage() {
         animate="animate"
         transition={{ duration: 0.4 }}
       >
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="mt-2 text-muted-foreground">Manage your account settings and preferences</p>
+        <h1 className="text-3xl font-bold">{t("settings.title")}</h1>
+        <p className="mt-2 text-muted-foreground">{t("settings.profileDesc")}</p>
       </motion.div>
 
       <motion.div
@@ -80,41 +81,34 @@ export function SettingsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <User className="h-5 w-5" />
-              <CardTitle>Profile</CardTitle>
+              <CardTitle>{t("settings.profile")}</CardTitle>
             </div>
-            <CardDescription>Update your personal information</CardDescription>
+            <CardDescription>{t("settings.profileDesc")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-              />
+              <Label htmlFor="name">{t("settings.name")}</Label>
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("settings.email")}</Label>
               <Input id="email" value={session?.user.email || ""} disabled className="bg-muted" />
-              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+              <p className="text-xs text-muted-foreground">{t("settings.emailReadOnly")}</p>
             </div>
 
             <div className="flex items-center gap-3">
               <Button onClick={handleSave} disabled={updateMutation.isPending || !name.trim()}>
-                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+                {updateMutation.isPending ? tc("actions.saving") : tc("actions.save")}
               </Button>
               {saveStatus === "success" && (
                 <span className="flex items-center gap-1 text-sm text-green-600">
                   <CheckCircle2 className="h-4 w-4" />
-                  Saved successfully
                 </span>
               )}
               {saveStatus === "error" && (
                 <span className="flex items-center gap-1 text-sm text-destructive">
                   <XCircle className="h-4 w-4" />
-                  Failed to save
                 </span>
               )}
             </div>
@@ -130,20 +124,18 @@ export function SettingsPage() {
       >
         <Card>
           <CardHeader>
-            <CardTitle className="text-destructive">Danger Zone</CardTitle>
-            <CardDescription>Irreversible and destructive actions</CardDescription>
+            <CardTitle className="text-destructive">{t("settings.dangerZone")}</CardTitle>
+            <CardDescription>{t("settings.dangerZoneDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
             <Separator className="mb-6" />
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium">Delete Account</p>
-                <p className="text-sm text-muted-foreground">
-                  Permanently delete your account and all associated data
-                </p>
+                <p className="font-medium">{tc("actions.deleteAccount")}</p>
+                <p className="text-sm text-muted-foreground">{t("settings.deleteAccountDesc")}</p>
               </div>
               <Button variant="destructive" disabled>
-                Delete Account
+                {tc("actions.deleteAccount")}
               </Button>
             </div>
           </CardContent>

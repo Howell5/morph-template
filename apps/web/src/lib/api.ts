@@ -1,5 +1,6 @@
 import { hcWithType } from "@repo/api/client";
 import { type ApiFailure, type ApiSuccess, isPaywallError } from "@repo/shared";
+import i18n from "i18next";
 import { toast } from "sonner";
 import { env } from "../env";
 
@@ -26,9 +27,23 @@ export class ApiError extends Error {
  * - Preserves error codes for special handling
  * - Throws ApiError with code for programmatic handling
  */
+/**
+ * Module-level paywall handler for decoupled paywall error interception.
+ * Set by PaywallProvider to avoid circular dependencies.
+ */
+let paywallHandler: ((errorCode: string) => void) | null = null;
+
+export function setPaywallHandler(handler: ((errorCode: string) => void) | null) {
+  paywallHandler = handler;
+}
+
 async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  headers.set("Accept-Language", i18n.language);
+
   const response = await fetch(input, {
     ...init,
+    headers,
     credentials: "include", // Important: allows cookies for Better Auth
   });
 
@@ -46,8 +61,10 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<R
       // If parsing fails, use default message
     }
 
-    // Show toast for non-paywall errors (paywall errors are handled by PaywallModal)
-    if (!isPaywallError(errorCode)) {
+    // Paywall errors are intercepted by the PaywallProvider
+    if (isPaywallError(errorCode) && paywallHandler && errorCode) {
+      paywallHandler(errorCode);
+    } else if (!isPaywallError(errorCode)) {
       toast.error(errorMessage);
     }
 

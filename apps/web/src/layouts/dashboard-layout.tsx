@@ -2,6 +2,7 @@ import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { useSession } from "@/lib/auth-client";
 import { ROUTES } from "@/lib/routes";
+import { SidebarProvider } from "@/providers/sidebar-provider";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 export function DashboardLayout() {
@@ -23,17 +24,19 @@ export function DashboardLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Sidebar - desktop only */}
-      <DashboardSidebar />
+    <SidebarProvider>
+      <div className="flex min-h-screen bg-background">
+        {/* Sidebar - desktop only */}
+        <DashboardSidebar />
 
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col">
-        <DashboardHeader />
-        <main className="flex-1 p-4 lg:p-6">
-          <Outlet />
-        </main>
+        {/* Main content area */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <DashboardHeader />
+          <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 }

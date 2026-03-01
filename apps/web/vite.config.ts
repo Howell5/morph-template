@@ -9,6 +9,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "@repo/api/client": path.resolve(__dirname, "../api/src/client.ts"),
       "@repo/api": path.resolve(__dirname, "../api/src/index.ts"),
+      "@repo/shared/locales": path.resolve(__dirname, "../../packages/shared/src/locales"),
       "@repo/shared": path.resolve(__dirname, "../../packages/shared/src/index.ts"),
     },
   },

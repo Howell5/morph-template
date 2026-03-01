@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/lib/routes";
 import { CREDIT_PACKAGES, formatPrice } from "@repo/shared";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 const containerVariants = {
@@ -24,6 +25,8 @@ const itemVariants = {
 };
 
 export function PricingSection() {
+  const { t } = useTranslation("common");
+
   return (
     <section className="border-t py-24 md:py-32">
       <div className="container mx-auto px-4">
@@ -35,7 +38,7 @@ export function PricingSection() {
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
           >
-            Simple, transparent pricing
+            {t("landing.pricingTitle")}
           </motion.h2>
           <motion.p
             className="mt-4 text-lg text-muted-foreground"
@@ -44,7 +47,7 @@ export function PricingSection() {
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            Pay for what you use. No hidden fees, no subscriptions.
+            {t("landing.pricingSubtitle")}
           </motion.p>
         </div>
 
@@ -66,7 +69,7 @@ export function PricingSection() {
               {pkg.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                    Most Popular
+                    {t("landing.mostPopular")}
                   </span>
                 </div>
               )}
@@ -80,7 +83,7 @@ export function PricingSection() {
                 </div>
 
                 <div className="mt-2 text-sm text-muted-foreground">
-                  {pkg.credits.toLocaleString()} credits
+                  {t("landing.credits", { count: pkg.credits })}
                 </div>
 
                 <Button
@@ -88,7 +91,7 @@ export function PricingSection() {
                   className="mt-8 w-full"
                   variant={pkg.popular ? "default" : "outline"}
                 >
-                  <Link to={ROUTES.LOGIN}>Get Started</Link>
+                  <Link to={ROUTES.LOGIN}>{t("actions.getStarted")}</Link>
                 </Button>
               </div>
             </motion.div>

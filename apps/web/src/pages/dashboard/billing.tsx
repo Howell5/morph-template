@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Check, CreditCard, Zap } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -13,6 +14,8 @@ const fadeInUp = {
 };
 
 export function BillingPage() {
+  const { t } = useTranslation("dashboard");
+  const { t: tc } = useTranslation("common");
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
 
   const { data: userData, isLoading: isLoadingUser } = useQuery({
@@ -58,8 +61,7 @@ export function BillingPage() {
         animate="animate"
         transition={{ duration: 0.4 }}
       >
-        <h1 className="text-3xl font-bold">Billing</h1>
-        <p className="mt-2 text-muted-foreground">Manage your credits and purchases</p>
+        <h1 className="text-3xl font-bold">{t("billing.title")}</h1>
       </motion.div>
 
       {/* Current Balance */}
@@ -71,7 +73,7 @@ export function BillingPage() {
       >
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Current Balance</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("billing.currentBalance")}</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -82,7 +84,6 @@ export function BillingPage() {
                 (userData?.credits?.total?.toLocaleString() ?? 0)
               )}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">credits available</p>
           </CardContent>
         </Card>
       </motion.div>
@@ -94,7 +95,7 @@ export function BillingPage() {
         animate="animate"
         transition={{ duration: 0.4, delay: 0.2 }}
       >
-        <h2 className="mb-4 text-xl font-semibold">Purchase Credits</h2>
+        <h2 className="mb-4 text-xl font-semibold">{t("billing.creditPackages")}</h2>
         <div className="grid gap-4 md:grid-cols-3">
           {CREDIT_PACKAGES.map((pkg) => (
             <Card
@@ -107,7 +108,7 @@ export function BillingPage() {
               {pkg.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                    Best Value
+                    {t("billing.bestValue")}
                   </span>
                 </div>
               )}
@@ -126,15 +127,11 @@ export function BillingPage() {
                 <ul className="mb-6 space-y-2 text-left text-sm">
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-primary" />
-                    <span>Instant delivery</span>
+                    <span>{tc("pricing.neverExpire")}</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="h-4 w-4 text-primary" />
-                    <span>No expiration</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-primary" />
-                    <span>Secure payment</span>
+                    <span>{tc("pricing.securePayment")}</span>
                   </li>
                 </ul>
 
@@ -146,12 +143,12 @@ export function BillingPage() {
                   {checkoutMutation.isPending && selectedPackage === pkg.id ? (
                     <>
                       <CreditCard className="mr-2 h-4 w-4 animate-pulse" />
-                      Processing...
+                      {tc("actions.processing")}
                     </>
                   ) : (
                     <>
                       <CreditCard className="mr-2 h-4 w-4" />
-                      Purchase
+                      {tc("actions.purchase")}
                     </>
                   )}
                 </Button>
@@ -159,12 +156,6 @@ export function BillingPage() {
             </Card>
           ))}
         </div>
-
-        {checkoutMutation.isError && (
-          <p className="mt-4 text-center text-sm text-destructive">
-            Failed to create checkout session. Please try again.
-          </p>
-        )}
       </motion.div>
     </div>
   );

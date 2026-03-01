@@ -1,5 +1,6 @@
 import { Logo } from "@/components/common/logo";
 import { ThemeToggle } from "@/components/common/theme-toggle";
+import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,13 +14,18 @@ import {
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { authClient, useSession } from "@/lib/auth-client";
 import { ROUTES } from "@/lib/routes";
-import { CreditCard, LogOut, Menu, Settings, User } from "lucide-react";
+import { useReferral } from "@/providers/referral-provider";
+import { useSettings } from "@/providers/settings-provider";
+import { CreditCard, LogOut, Menu, Settings, User, UserPlus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
-import { DashboardSidebar } from "./dashboard-sidebar";
 
 export function DashboardHeader() {
+  const { t } = useTranslation("common");
   const { data: session } = useSession();
   const navigate = useNavigate();
+  const { openSettings } = useSettings();
+  const { openReferral } = useReferral();
 
   const handleSignOut = async () => {
     await authClient.signOut();
@@ -46,7 +52,7 @@ export function DashboardHeader() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
-            <DashboardSidebar />
+            <DashboardSidebar mobile />
           </SheetContent>
         </Sheet>
 
@@ -84,25 +90,25 @@ export function DashboardHeader() {
               <DropdownMenuItem asChild>
                 <Link to={ROUTES.DASHBOARD}>
                   <User className="mr-2 h-4 w-4" />
-                  Dashboard
+                  {t("nav.dashboard")}
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={ROUTES.SETTINGS}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
+              <DropdownMenuItem onClick={() => openSettings("account")}>
+                <Settings className="mr-2 h-4 w-4" />
+                {t("nav.settings")}
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to={ROUTES.BILLING}>
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Billing
-                </Link>
+              <DropdownMenuItem onClick={() => openSettings("billing")}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                {t("nav.billing")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={openReferral}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                {t("nav.inviteFriends")}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
-                Sign out
+                {t("actions.signOut")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
