@@ -4,7 +4,10 @@ import { Hono } from "hono";
 import type Stripe from "stripe";
 import { db } from "../db";
 import { creditRecords, orders, user } from "../db/schema";
+import { sendAlert } from "../lib/alerting";
+import { webhookLogger } from "../lib/logger";
 import { errors, ok } from "../lib/response";
+import { captureException } from "../lib/sentry";
 import { getStripe } from "../lib/stripe";
 
 const webhooksRoute = new Hono()
@@ -14,7 +17,7 @@ const webhooksRoute = new Hono()
    */
   .post("/stripe", async (c) => {
     if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
-      console.error("Stripe webhook received but Stripe is not configured");
+      webhookLogger.error("Stripe webhook received but Stripe is not configured");
       return errors.serviceUnavailable(c, "Stripe is not configured");
     }
 
@@ -31,11 +34,11 @@ const webhooksRoute = new Hono()
       const rawBody = await c.req.text();
       event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET);
     } catch (error) {
-      console.error("Webhook signature verification failed:", error);
+      webhookLogger.error({ err: error }, "Webhook signature verification failed");
       return errors.badRequest(c, "Invalid signature");
     }
 
-    console.log(`Stripe webhook received: ${event.type}`);
+    webhookLogger.info({ eventType: event.type }, "Stripe webhook received");
 
     try {
       switch (event.type) {
@@ -62,7 +65,13 @@ const webhooksRoute = new Hono()
 
       return ok(c, { received: true });
     } catch (error) {
-      console.error("Webhook processing error:", error);
+      webhookLogger.error({ err: error, eventType: event.type }, "Webhook processing error");
+      captureException(error, { eventType: event.type, eventId: event.id });
+      sendAlert("critical", "Stripe webhook processing failed", {
+        eventType: event.type,
+        eventId: event.id,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
       return errors.internal(c, "Failed to process webhook");
     }
   });
@@ -364,6 +373,11 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   }
 
   console.log(`Payment failed for user ${userData.id} (${userData.email})`);
+  sendAlert("warning", "Stripe payment failed", {
+    userId: userData.id,
+    email: userData.email,
+    invoiceId: invoice.id,
+  });
 }
 
 export default webhooksRoute;

@@ -480,6 +480,9 @@ morph-template/
 │   │   │   │   ├── stripe.ts   # Stripe client singleton
 │   │   │   │   ├── r2.ts       # R2 client + presigned URL generation
 │   │   │   │   ├── ai.ts       # OpenRouter client singleton
+│   │   │   │   ├── sentry.ts   # Sentry error tracking singleton
+│   │   │   │   ├── alerting.ts  # Business alert webhook (Slack/Lark)
+│   │   │   │   ├── logger.ts    # pino structured logger + child loggers
 │   │   │   │   └── seed-dev.ts # Dev test account seeding
 │   │   │   ├── auth.ts         # Better Auth configuration (dynamic providers)
 │   │   │   ├── client.ts       # Pre-compiled RPC client export
@@ -805,6 +808,34 @@ Paywall errors (handled specially in frontend):
 - `SUBSCRIPTION_REQUIRED`
 - `LIMIT_REACHED`
 
+### Production Monitoring
+
+The template includes a SaaS-first monitoring stack:
+
+**Error Tracking (Sentry)**:
+- Backend: `apps/api/src/lib/sentry.ts` — singleton with `initSentry()`, `captureException()`
+- Frontend: `@sentry/react` initialized in `main.tsx`, wired into `ErrorBoundary`
+- Global error handler, uncaught exceptions, and unhandled rejections all report to Sentry
+- Config: `SENTRY_DSN` (backend), `VITE_SENTRY_DSN` (frontend) — optional
+
+**Health Check** (`GET /health`):
+- Checks: database connectivity (with latency), R2 configured, AI configured
+- Returns `healthy` (200) or `unhealthy` (503, when DB is down)
+- Returns `shutting_down` (503) during graceful shutdown
+- Designed for Uptime Kuma or similar external monitoring
+
+**Business Alerting** (`apps/api/src/lib/alerting.ts`):
+- `sendAlert(severity, title, details)` — sends to Slack/Lark incoming webhook
+- Memory-level dedup (same title suppressed for 5 minutes)
+- Integrated into: AI job failures (quota/rate limit), Stripe webhook errors, payment failures
+- Config: `ALERT_WEBHOOK_URL` — optional
+
+**Structured Logging** (`apps/api/src/lib/logger.ts`):
+- pino with child loggers: `aiLogger`, `creditsLogger`, `webhookLogger`, `queueLogger`
+- JSON output in production, pino-pretty in development
+- Request ID middleware adds `x-request-id` header to all responses
+- Key error paths in index.ts, AI jobs, and webhooks use structured logging
+
 ## Environment Variables
 
 ### Backend (apps/api/.env)
@@ -844,6 +875,10 @@ TURNSTILE_SECRET_KEY=xxx            # Turnstile secret key
 RESEND_API_KEY=re_xxx               # Resend API key
 RESEND_FROM_EMAIL=noreply@example.com  # Sender email address
 
+# Monitoring (optional in development)
+SENTRY_DSN=https://xxx@sentry.io/xxx    # Sentry error tracking DSN
+ALERT_WEBHOOK_URL=https://hooks.slack.com/...  # Slack/Lark webhook for business alerts
+
 # Optional: HTTP proxy for external API calls
 HTTPS_PROXY=http://127.0.0.1:7890
 ```
@@ -851,6 +886,7 @@ HTTPS_PROXY=http://127.0.0.1:7890
 ### Frontend (apps/web/.env)
 ```bash
 VITE_API_URL=http://localhost:3000
+VITE_SENTRY_DSN=https://xxx@sentry.io/xxx  # Optional: Sentry frontend DSN
 ```
 
 **Important**: Environment variables are validated at startup via `validateEnv()` in both API and Web.

@@ -31,6 +31,9 @@ const envSchema = z.object({
   // Resend email (optional in development)
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().email().optional(),
+  // Monitoring (optional)
+  SENTRY_DSN: z.string().url().optional(),
+  ALERT_WEBHOOK_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -42,12 +42,14 @@ export const db = new Proxy({} as PostgresJsDatabase<typeof schema>, {
  */
 export async function checkDatabaseHealth(): Promise<{
   healthy: boolean;
+  latencyMs?: number;
   error?: string;
 }> {
   try {
+    const start = Date.now();
     const db = getDb();
     await db.execute(sql`SELECT 1`);
-    return { healthy: true };
+    return { healthy: true, latencyMs: Date.now() - start };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown database error";
     console.error("[Database] Health check failed:", message);

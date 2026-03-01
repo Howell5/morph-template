@@ -3,6 +3,9 @@ import type { Job, PgBoss } from "pg-boss";
 import { db } from "../db";
 import { aiTasks } from "../db/schema";
 import { getOpenRouter } from "../lib/ai";
+import { sendAlert } from "../lib/alerting";
+import { aiLogger } from "../lib/logger";
+import { captureException } from "../lib/sentry";
 
 /**
  * Payload matching the fields stored in aiTasks + enqueued from tasks route
@@ -32,7 +35,7 @@ async function processJob(job: Job<AiGenerationPayload>) {
   const { taskId, type, model, prompt, negativePrompt } = job.data;
   const startTime = Date.now();
 
-  console.log(`[Job:ai-generation] Processing ${type} task ${taskId} (${model})`);
+  aiLogger.info({ taskId, type, model }, "Processing AI generation task");
 
   await db.update(aiTasks).set({ status: "processing" }).where(eq(aiTasks.id, taskId));
 
@@ -60,12 +63,22 @@ async function processJob(job: Job<AiGenerationPayload>) {
       })
       .where(eq(aiTasks.id, taskId));
 
-    console.log(`[Job:ai-generation] Task ${taskId} completed in ${durationMs}ms`);
+    aiLogger.info({ taskId, durationMs }, "AI generation task completed");
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     const durationMs = Date.now() - startTime;
 
-    console.error(`[Job:ai-generation] Task ${taskId} failed: ${message}`);
+    aiLogger.error({ taskId, type, model, err: error }, "AI generation task failed");
+    captureException(error, { taskId, type, model });
+
+    // Alert on quota/rate limit errors
+    if (message.includes("429") || message.includes("quota") || message.includes("insufficient")) {
+      sendAlert("critical", "AI API quota or rate limit exceeded", {
+        taskId,
+        model,
+        error: message,
+      });
+    }
 
     await db
       .update(aiTasks)
