@@ -43,3 +43,6 @@ drizzle
 
 # Local development
 .history
+
+# Claude Code
+.claude
