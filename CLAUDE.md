@@ -8,7 +8,7 @@ Morph Template is a full-stack TypeScript monorepo featuring end-to-end type saf
 
 **Key Technology Stack:**
 - **Backend**: Hono (web framework) + Drizzle ORM + PostgreSQL + Better Auth
-- **Frontend**: React + Vite + TanStack Query + shadcn/ui + Tailwind CSS
+- **Frontend**: React + Vite + TanStack Query + shadcn/ui + Tailwind CSS + i18next
 - **Task Queue**: pg-boss (PostgreSQL-based, zero extra infrastructure)
 - **Payments**: Stripe (Checkout + Webhooks + Subscriptions)
 - **Credits**: Three-pool system (daily/subscription/bonus) with audit trail
@@ -17,6 +17,8 @@ Morph Template is a full-stack TypeScript monorepo featuring end-to-end type saf
 - **Email**: Resend (transactional emails, optional in dev)
 - **Bot Protection**: Cloudflare Turnstile (optional in dev)
 - **Monorepo**: pnpm workspaces + Turborepo
+- **i18n**: i18next + react-i18next (Chinese/English, browser language detection)
+- **Monitoring**: Sentry (error tracking) + pino (structured logging) + business alerting
 - **Tooling**: Biome (linting/formatting), Vitest (testing), TypeScript strict mode
 
 **Architecture Documentation**: See `docs/ARCHITECTURE.md` for comprehensive technical details.
@@ -492,17 +494,22 @@ morph-template/
 │   └── web/                    # Frontend application
 │       ├── src/
 │       │   ├── components/
-│       │   │   ├── ui/         # shadcn/ui components
-│       │   │   └── error-boundary.tsx  # React error boundary
+│       │   │   ├── ui/         # shadcn/ui components (16+)
+│       │   │   ├── modals/     # PricingModal, SettingsModal, FeedbackModal, ReferralModal
+│       │   │   ├── layout/     # DashboardSidebar, DashboardHeader, PublicHeader/Footer
+│       │   │   ├── landing/    # Hero, Features, CTA, PricingSection
+│       │   │   └── error-boundary.tsx  # React error boundary + Sentry
+│       │   ├── providers/      # PaywallProvider, PricingProvider, SettingsProvider, etc.
+│       │   ├── i18n/           # i18next initialization
 │       │   ├── lib/
-│       │   │   ├── api.ts      # Typed Hono client + ApiError + auto toast
+│       │   │   ├── api.ts      # Typed Hono client + ApiError + paywall bridge
 │       │   │   ├── auth-client.ts  # Better Auth client
 │       │   │   ├── query-client.ts # TanStack Query setup
 │       │   │   ├── upload.ts   # File upload utilities (R2 direct upload)
 │       │   │   └── utils.ts    # Utilities (cn helper)
 │       │   ├── pages/          # Page components (orders.tsx, etc.)
 │       │   ├── env.ts          # Frontend env validation
-│       │   └── main.tsx        # React entry point
+│       │   └── main.tsx        # React entry point + Sentry init
 │       └── vite.config.ts
 ├── packages/
 │   └── shared/                 # Shared schemas and types
@@ -524,7 +531,9 @@ morph-template/
 │           │   ├── pricing.ts  # Subscription plans & credit packages
 │           │   ├── credits.ts  # Three-pool credits config
 │           │   └── referral.ts # Referral system config
-│           └── index.ts        # Re-exports all schemas
+│           ├── i18n/           # I18N_CONFIG, SUPPORTED_LANGUAGES, LANGUAGE_LABELS
+│           ├── locales/        # en/ and zh/ translation JSON files
+│           └── index.ts        # Re-exports all schemas + i18n
 └── scripts/
     └── check-file-lines.ts     # File line count checker (max 500)
 ```
@@ -807,6 +816,52 @@ Paywall errors (handled specially in frontend):
 - `PAYMENT_REQUIRED`
 - `SUBSCRIPTION_REQUIRED`
 - `LIMIT_REACHED`
+
+### i18n (Internationalization)
+
+The template supports Chinese/English with browser language detection:
+
+**Shared locale files** (`packages/shared/src/locales/{en,zh}/{common,dashboard}.json`):
+- Namespaced: `common` (nav, actions, status, errors) and `dashboard` (page-specific)
+- Flat key structure: `t("nav.dashboard")`, `t("actions.save")`
+
+**Frontend init** (`apps/web/src/i18n/index.ts`):
+- i18next with `LanguageDetector` (localStorage → navigator)
+- Static imports of all locale JSON files (Vite bundled)
+
+**API integration** (`apps/web/src/lib/api.ts`):
+- `Accept-Language` header sent with every request from `i18n.language`
+
+**Adding translations**: Add keys to both `en/*.json` and `zh/*.json`, then use `t("key")` in components.
+
+### Frontend Provider Architecture
+
+The frontend uses a layered Provider pattern (all following existing `ThemeProvider` conventions):
+
+**Provider composition** (`App.tsx`):
+```
+ErrorBoundary > QueryClientProvider > PaywallProvider > PricingProvider >
+  SettingsProvider > FeedbackProvider > ReferralProvider >
+    Routes + PricingModal + SettingsModal + FeedbackModal + ReferralModal
+```
+
+**Key providers** (`apps/web/src/providers/`):
+- `PaywallProvider` — Intercepts paywall error codes via module-level callback bridge in `api.ts`
+- `PricingProvider` — Controls PricingModal, detects `?pricing=1` URL param
+- `SettingsProvider` — Controls SettingsModal with 4 tabs (account/preferences/billing/usage)
+- `SidebarProvider` — Collapsible sidebar state with localStorage persistence
+- `FeedbackProvider` / `ReferralProvider` — Simple open/close state
+
+**Modals** (`apps/web/src/components/modals/`):
+- `PricingModal` — Subscription plans grid with annual toggle + credit packages
+- `SettingsModal` — Vertical tabs container, delegates to `settings/*.tsx` tab components
+- `FeedbackModal` — Bug/feature/general form → `POST /api/feedback`
+- `ReferralModal` — Referral link, copy button, stats, monthly limit progress
+
+**Paywall bridge pattern** (avoids circular dependency):
+- `api.ts` exports `setPaywallHandler(callback)` at module level
+- `PaywallProvider` calls `setPaywallHandler` on mount to register itself
+- `apiFetch` invokes the callback when paywall error codes are detected
 
 ### Production Monitoring
 

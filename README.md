@@ -1,56 +1,58 @@
-# 🚀 Morph Template
+# Morph Template
 
-A modern, type-safe full-stack monorepo template featuring end-to-end type safety, built with the latest tools and best practices.
+A production-ready, type-safe full-stack SaaS monorepo template with end-to-end type safety, built-in monetization, monitoring, and i18n.
 
 [![GitHub](https://img.shields.io/badge/GitHub-Howell5%2Fmorph--template-blue?logo=github)](https://github.com/Howell5/morph-template)
 
-## ✨ Features
+## Features
 
-- **🔒 End-to-End Type Safety**: Hono's `AppType` + `hono/client` for seamless frontend-backend type inference
-- **📦 Monorepo Architecture**: pnpm workspaces + Turborepo for efficient builds and caching
-- **🔐 Built-in Authentication**: Better Auth with Google & GitHub OAuth (social login only)
-- **⏳ Task Queue**: pg-boss (PostgreSQL-based) for background jobs, retries, cron scheduling -- no Redis needed
-- **💳 Credits & Payments**: Stripe integration with checkout sessions, webhooks, and order history
-- **📁 File Upload**: Cloudflare R2 with presigned URLs for direct frontend upload
-- **🤖 AI Integration**: OpenRouter SDK for unified access to 300+ LLMs (streaming + image generation)
-- **🗄️ Modern Database**: PostgreSQL + Drizzle ORM with type-safe queries
-- **⚡ Fast Development**: Vite + Hot Module Replacement + TypeScript strict mode
-- **🎨 Beautiful UI**: shadcn/ui + Tailwind CSS for rapid UI development
-- **📡 Smart Data Fetching**: TanStack Query with optimized caching and error handling
-- **🧹 Code Quality**: Biome for linting and formatting (faster than ESLint + Prettier)
-- **✅ Schema Validation**: Zod schemas shared between frontend and backend
+- **End-to-End Type Safety**: Hono `AppType` + `hono/client` — zero manual type definitions across API boundary
+- **Monorepo**: pnpm workspaces + Turborepo for efficient builds and caching
+- **Authentication**: Better Auth with email/password (dev) + Google & GitHub OAuth (production)
+- **Three-Pool Credits**: Daily/subscription/bonus credits with full audit trail
+- **Stripe Payments**: Subscription plans + one-time credit packages + webhook handling
+- **Task Queue**: pg-boss (PostgreSQL-based) — background jobs, retries, cron scheduling, no Redis
+- **AI Integration**: OpenRouter SDK — unified access to 300+ LLMs (streaming + image generation)
+- **File Upload**: Cloudflare R2 with presigned URLs for direct frontend upload
+- **i18n**: i18next with Chinese/English support, browser language detection, localStorage persistence
+- **Production Monitoring**: Sentry error tracking, pino structured logging, business alerting webhooks
+- **Admin System**: Role-based admin routes for user search, credit grants, feedback management
+- **Referral System**: Viral growth with anti-fraud (IP limits, monthly caps, self-referral prevention)
+- **Feedback Collection**: User bug reports and feature requests with rate limiting
+- **Bot Protection**: Cloudflare Turnstile (optional in dev)
+- **Email**: Resend transactional emails (optional in dev)
+- **UI**: shadcn/ui (16+ components) + Tailwind CSS + collapsible sidebar + modal system
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 morph-template/
 ├── apps/
-│   ├── api/              # Backend (Hono + Drizzle + Better Auth + pg-boss)
+│   ├── api/                    # Backend (Hono + Drizzle + Better Auth + pg-boss)
 │   │   ├── src/
-│   │   │   ├── db/       # Database schemas and connection
-│   │   │   ├── routes/   # API routes (posts, checkout, orders, tasks, ...)
-│   │   │   ├── jobs/     # pg-boss job handlers (AI generation, cleanup, ...)
-│   │   │   ├── lib/      # Service singletons (queue, stripe, r2, ai, ...)
-│   │   │   ├── auth.ts   # Better Auth configuration
-│   │   │   ├── env.ts    # Environment variable validation
-│   │   │   └── index.ts  # Main app (exports AppType)
+│   │   │   ├── routes/         # API routes (checkout, orders, user, chat, admin, ...)
+│   │   │   ├── jobs/           # pg-boss job handlers (AI generation, cleanup)
+│   │   │   ├── db/             # Drizzle schema + connection
+│   │   │   ├── lib/            # Service singletons (stripe, r2, ai, queue, sentry, logger, ...)
+│   │   │   ├── auth.ts         # Better Auth configuration
+│   │   │   ├── env.ts          # Environment variable validation
+│   │   │   └── index.ts        # Main app (exports AppType)
 │   │   └── drizzle.config.ts
-│   └── web/              # Frontend (React + Vite + TanStack Query)
+│   └── web/                    # Frontend (React + Vite + TanStack Query)
 │       ├── src/
-│       │   ├── components/  # UI components (shadcn/ui)
-│       │   ├── lib/         # API client, auth client, upload utils
-│       │   ├── pages/       # Page components (orders, etc.)
-│       │   ├── env.ts       # Frontend env validation
-│       │   └── main.tsx
+│       │   ├── components/     # UI (shadcn/ui), modals, layout, landing
+│       │   ├── providers/      # Paywall, Pricing, Settings, Sidebar, Feedback, Referral
+│       │   ├── i18n/           # i18next initialization
+│       │   ├── pages/          # Dashboard, pricing, login, etc.
+│       │   ├── lib/            # API client, auth, upload utils
+│       │   └── main.tsx        # Entry point + Sentry init
 │       └── vite.config.ts
-└── packages/
-    └── shared/           # Shared Zod schemas and types
-        └── src/
-            ├── schemas/  # Validation schemas (posts, orders, upload, common)
-            └── config/   # Credit packages & pricing
+├── packages/
+│   └── shared/                 # Shared Zod schemas, configs, i18n, locales
+└── scripts/                    # Build utilities
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -61,669 +63,184 @@ morph-template/
 ### 1. Clone and Install
 
 ```bash
-# Clone the repository
 git clone git@github.com:Howell5/morph-template.git
 cd morph-template
-
-# Install dependencies
 pnpm install
 ```
 
-### 2. Set Up Environment Variables
+### 2. Environment Variables
 
 ```bash
-# Copy environment files
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env
 ```
 
-Edit `apps/api/.env` with your values:
+**Backend** (`apps/api/.env`):
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `BETTER_AUTH_SECRET` | Yes | Secure random string (min 32 chars) |
-| `GOOGLE_CLIENT_ID` | No* | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | No* | Google OAuth client secret |
-| `GITHUB_CLIENT_ID` | No* | GitHub OAuth client ID |
-| `GITHUB_CLIENT_SECRET` | No* | GitHub OAuth client secret |
-| `STRIPE_SECRET_KEY` | No | Stripe API key (for payments) |
-| `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook secret |
-| `R2_ACCOUNT_ID` | No | Cloudflare account ID (for file uploads) |
-| `R2_ACCESS_KEY_ID` | No | R2 API token access key |
-| `R2_SECRET_ACCESS_KEY` | No | R2 API token secret key |
-| `R2_BUCKET_NAME` | No | R2 bucket name |
-| `R2_PUBLIC_URL` | No | Custom public URL for uploaded files |
+| `BETTER_AUTH_URL` | Yes | API base URL (e.g. `http://localhost:3000`) |
+| `FRONTEND_URL` | No | Frontend URL for CORS (default: `http://localhost:5173`) |
+| `GOOGLE_CLIENT_ID` / `SECRET` | No | Google OAuth (optional in dev) |
+| `GITHUB_CLIENT_ID` / `SECRET` | No | GitHub OAuth (optional in dev) |
+| `STRIPE_SECRET_KEY` | No | Stripe API key |
+| `STRIPE_WEBHOOK_SECRET` | No | Stripe webhook signing secret |
+| `OPENROUTER_API_KEY` | No | OpenRouter AI API key |
+| `R2_ACCOUNT_ID` | No | Cloudflare R2 (4 vars needed for file uploads) |
+| `TURNSTILE_SECRET_KEY` | No | Cloudflare Turnstile bot protection |
+| `RESEND_API_KEY` | No | Resend email service |
+| `SENTRY_DSN` | No | Sentry error tracking |
+| `ALERT_WEBHOOK_URL` | No | Slack/Lark webhook for business alerts |
 
-*OAuth providers are optional in development. If not configured, the corresponding social login button won't work. At least one OAuth provider should be configured for authentication to function.
+**Frontend** (`apps/web/.env`):
 
-Generate a secure secret:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_API_URL` | No | Backend URL (default: `http://localhost:3000`) |
+| `VITE_SENTRY_DSN` | No | Sentry frontend error tracking |
+
+Generate a secret:
 ```bash
 openssl rand -base64 32
 ```
 
-### 2.1 Configure OAuth Providers (Optional in Development)
-
-This template uses **social login only** (no email/password). OAuth providers are optional in development - the server will start without them, but login won't work until at least one is configured.
-
-#### Google OAuth
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Create a new project or select existing
-3. Enable "Google+ API" or "Google Identity"
-4. Create **OAuth 2.0 Client ID** (Web application)
-5. Add Authorized redirect URI:
-   - Development: `http://localhost:3000/api/auth/callback/google`
-   - Production: `https://your-api-domain.com/api/auth/callback/google`
-6. Copy Client ID and Client Secret to `.env`
-
-#### GitHub OAuth
-
-1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
-2. Click **New OAuth App**
-3. Fill in:
-   - Application name: Your app name
-   - Homepage URL: `http://localhost:5173` (or production URL)
-   - Authorization callback URL: `http://localhost:3000/api/auth/callback/github`
-4. Copy Client ID and generate Client Secret
-5. Add to `.env`
-
 ### 3. Start Database
 
 ```bash
-# Start PostgreSQL with Docker Compose
-pnpm docker:up
-
-# Verify it's running
-docker ps
+pnpm docker:up     # Start PostgreSQL
+pnpm db:push       # Create tables
 ```
 
-### 4. Initialize Database
+### 4. Start Development
 
 ```bash
-# Push schema to database (creates tables)
-pnpm db:push
-
-# Optional: Open Drizzle Studio to view your database
-pnpm db:studio
+pnpm dev            # API on :3000, Web on :5173
 ```
 
-### 5. Start Development Servers
+A test account (`test@test.com` / `password123`) is auto-seeded in development mode.
+
+## Common Commands
 
 ```bash
-# Start both API and Web in parallel
-pnpm dev
+pnpm dev              # Start all apps
+pnpm build            # Build for production
+pnpm check            # Lint + format (Biome)
+pnpm check:lines      # Verify all files < 500 lines
 
-# API will run on http://localhost:3000
-# Web will run on http://localhost:5173
-```
-
-## 📚 Common Commands
-
-```bash
-# Development
-pnpm dev              # Start all apps in development mode
-pnpm build            # Build all apps for production
-pnpm lint             # Lint all packages
-pnpm format           # Format code with Biome
-pnpm check            # Check and fix code issues
-
-# Database
-pnpm db:push          # Push schema changes to database
-pnpm db:studio        # Open Drizzle Studio (database UI)
+pnpm db:push          # Push schema to database
+pnpm db:studio        # Open Drizzle Studio
 pnpm docker:up        # Start PostgreSQL
 pnpm docker:down      # Stop PostgreSQL
 ```
 
-## 🏗️ Architecture Principles
+## Architecture
 
-### RPC-Style API Calls
+### RPC-Style Type Safety
 
-**❌ Don't** write manual fetch calls:
 ```typescript
-// Bad: Manual typing, prone to errors
-const response = await fetch('/api/posts');
-const posts: Post[] = await response.json();
-```
+// Backend exports AppType
+export type AppType = typeof app;
 
-**✅ Do** use the typed Hono client:
-```typescript
-// Good: Full type safety, auto-completion
+// Frontend automatically knows all request/response types
 const response = await api.api.posts.$get();
-const data = await response.json(); // Typed automatically!
+const json = await response.json(); // Fully typed!
 ```
 
-### Single Source of Truth for Validation
+### Shared Validation
 
-1. Define Zod schema in `packages/shared`:
-```typescript
-// packages/shared/src/schemas/post.ts
-export const createPostSchema = z.object({
-  title: z.string().min(1),
-  content: z.string().min(1),
-});
-```
+Zod schemas in `packages/shared` are the single source of truth:
+1. Define in `packages/shared/src/schemas/`
+2. Backend validates with `zValidator('json', schema)`
+3. Frontend validates with `zodResolver(schema)`
 
-2. Use in backend validation:
-```typescript
-// apps/api/src/routes/posts.ts
-.post('/', zValidator('json', createPostSchema), async (c) => {
-  const data = c.req.valid('json'); // Typed!
-  // ...
-})
-```
+### Credits System
 
-3. Use in frontend forms:
-```typescript
-// apps/web/src/pages/create-post.tsx
-const form = useForm({
-  resolver: zodResolver(createPostSchema), // Same schema!
-});
-```
+Three-pool system (consumption priority: daily → subscription → bonus):
+- **Daily**: 50/day, expires at UTC midnight
+- **Subscription**: Based on tier, resets on renewal
+- **Bonus**: From purchases/referrals/admin grants, never expire
 
-### Error Handling
+### Payments
 
-All API errors follow a consistent structure (defined in `@repo/shared`):
+- **Subscriptions**: Free, Starter ($12/mo), Pro ($24/mo), Max ($240/mo)
+- **Credit Packages**: Small (100/$5), Medium (250/$10), Large (600/$20)
+- Stripe Checkout + Webhooks + Billing Portal
 
-```typescript
-type ApiError = {
-  message: string;
-  code?: string;
-  issues?: any[]; // For Zod validation errors
-};
-```
+### Frontend Modal System
 
-Frontend automatically handles errors globally via React Query:
-- Mutations show toast notifications
-- Queries can be handled per-component or globally
+Provider-based architecture with paywall interception:
+- `PaywallProvider` — intercepts API paywall errors → opens `PricingModal`
+- `SettingsModal` — 4 tabs: Account, Preferences, Billing, Usage
+- `FeedbackModal` / `ReferralModal` — accessible from sidebar and header
 
-## 🔐 Authentication
+### Monitoring
 
-This template uses [Better Auth](https://www.better-auth.com/) for authentication:
+- **Sentry**: Frontend + backend error tracking
+- **pino**: Structured JSON logging with child loggers per module
+- **Health check**: `GET /health` with DB latency, R2/AI status
+- **Business alerts**: Webhook-based (Slack/Lark) for AI quota, payment failures
 
-- **Email/Password** authentication out of the box
-- **Session-based** with secure cookies
-- **Type-safe** auth methods on frontend and backend
-
-### Example: Protected Route
-
-Backend:
-```typescript
-.post('/', async (c) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) {
-    return errorResponse(c, 401, 'Unauthorized');
-  }
-  // User is authenticated, proceed...
-})
-```
-
-Frontend:
-```typescript
-function Component() {
-  const { data: session } = useSession();
-
-  if (!session) {
-    return <div>Please sign in</div>;
-  }
-
-  return <div>Welcome, {session.user.name}!</div>;
-}
-```
-
-## 📁 File Upload (Cloudflare R2)
-
-This template includes a complete file upload system using Cloudflare R2 with presigned URLs for direct frontend upload.
-
-### How It Works
-
-1. Frontend requests a presigned URL from the backend
-2. Backend generates a presigned PUT URL (valid for 5 minutes)
-3. Frontend uploads directly to R2 (bypasses backend for efficiency)
-4. Returns a public URL for the uploaded file
-
-### Setting Up R2
-
-1. Create a [Cloudflare account](https://dash.cloudflare.com/sign-up)
-2. Go to R2 Object Storage and create a bucket
-3. Create an API token with R2 read/write permissions
-4. Set environment variables:
-```bash
-R2_ACCOUNT_ID=your-account-id
-R2_ACCESS_KEY_ID=your-access-key
-R2_SECRET_ACCESS_KEY=your-secret-key
-R2_BUCKET_NAME=your-bucket-name
-R2_PUBLIC_URL=https://your-bucket.r2.dev  # Optional
-```
-
-### Supported File Types
-
-- `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml`
-- Maximum file size: 10MB
-
-### Example: Upload a File
-
-```typescript
-import { uploadFile } from "@/lib/upload";
-
-// Simple upload
-const result = await uploadFile(file);
-console.log(result.publicUrl);
-
-// Upload with progress tracking
-const result = await uploadFile(file, (progress) => {
-  console.log(`${progress.percentage}%`);
-});
-```
-
-## 💳 Credits & Payments
-
-This template includes a complete credits-based payment system using Stripe.
-
-### Credit Packages
-
-Defined in `packages/shared/src/config/pricing.ts`:
-- **Starter**: 100 credits for $9.99
-- **Professional**: 500 credits for $39.99 (most popular)
-- **Enterprise**: 1500 credits for $99.99
-
-### API Endpoints
+## API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/checkout` | POST | Create Stripe Checkout session |
-| `/api/orders` | GET | Get user's order history |
-| `/api/webhooks/stripe` | POST | Handle Stripe webhook events |
-| `/api/user/credits` | GET | Get user's current credit balance |
-| `/api/upload/presign` | POST | Generate R2 presigned upload URL |
-
-### Setting Up Stripe
-
-1. Create a [Stripe account](https://dashboard.stripe.com/register)
-2. Get your API keys from the Dashboard
-3. Set environment variables:
-```bash
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-```
-
-### Local Webhook Testing
-
-Use the [Stripe CLI](https://stripe.com/docs/stripe-cli) to forward webhooks locally:
-
-```bash
-# Install Stripe CLI
-brew install stripe/stripe-cli/stripe
-
-# Login to your Stripe account
-stripe login
-
-# Forward webhooks to your local server
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
-
-# Copy the webhook signing secret (whsec_...) to apps/api/.env
-```
-
-### Example: Purchase Credits
-
-```typescript
-// Frontend: Create checkout session
-const { mutate } = useMutation({
-  mutationFn: async (packageId: string) => {
-    const res = await api.api.checkout.$post({
-      json: { packageId }
-    });
-    const { checkoutUrl } = await res.json();
-    window.location.href = checkoutUrl; // Redirect to Stripe
-  }
-});
-
-// Trigger purchase
-mutate('professional');
-```
-
-### Webhook Flow
-
-1. User completes Stripe Checkout
-2. Stripe sends `checkout.session.completed` webhook
-3. Backend verifies signature and processes payment:
-   - Creates order record in database
-   - Increments user's credit balance
-   - Uses transaction for atomicity
-   - Idempotency check prevents duplicate processing
-
-## 🗄️ Database Management
-
-### Schema Changes
-
-1. Modify schema in `apps/api/src/db/schema.ts`
-2. Push changes: `pnpm db:push`
-3. Changes are applied immediately (use migrations in production)
-
-### Migrations (Production)
-
-```bash
-# Generate migration files
-cd apps/api
-pnpm db:generate
-
-# Apply migrations
-pnpm drizzle-kit migrate
-```
-
-## 🎨 Adding UI Components
-
-This template uses [shadcn/ui](https://ui.shadcn.com/). To add components:
-
-1. Create component files in `apps/web/src/components/ui/`
-2. Copy code from shadcn/ui documentation
-3. Adjust imports if needed (use `@/lib/utils` for `cn()`)
-
-Included components:
-- Button
-- Card
-- (Add more as needed)
-
-## 📝 Adding New Features
-
-### Example: Adding a "Comments" Feature
-
-1. **Define schema** (`packages/shared/src/schemas/comment.ts`):
-```typescript
-export const createCommentSchema = z.object({
-  postId: z.string().uuid(),
-  content: z.string().min(1),
-});
-```
-
-2. **Add database table** (`apps/api/src/db/schema.ts`):
-```typescript
-export const comments = pgTable('comments', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  postId: uuid('post_id').references(() => posts.id),
-  content: text('content').notNull(),
-  // ...
-});
-```
-
-3. **Create API route** (`apps/api/src/routes/comments.ts`):
-```typescript
-const commentsRoute = new Hono()
-  .post('/', zValidator('json', createCommentSchema), async (c) => {
-    // Implementation
-  });
-```
-
-4. **Use in frontend** (`apps/web/src/pages/post-detail.tsx`):
-```typescript
-const { mutate } = useMutation({
-  mutationFn: async (data: CreateComment) => {
-    const res = await api.api.comments.$post({ json: data });
-    return res.json();
-  },
-});
-```
-
-## 🐛 Troubleshooting
-
-### Port Already in Use
-
-```bash
-# Kill process on port 3000 (API)
-lsof -ti:3000 | xargs kill -9
-
-# Kill process on port 5173 (Web)
-lsof -ti:5173 | xargs kill -9
-```
-
-### Database Connection Issues
-
-```bash
-# Check if PostgreSQL is running
-docker ps
-
-# View logs
-docker logs morph-db
-
-# Restart database
-pnpm docker:down && pnpm docker:up
-```
-
-### Type Errors After Schema Changes
-
-```bash
-# Rebuild all packages
-pnpm build
-
-# Or restart your IDE/TypeScript server
-```
-
-## 🚀 Production Deployment
-
-<details>
-<summary><strong>📦 Deploy to Zeabur (Recommended)</strong></summary>
-
-<br>
-
-[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com)
-
-Zeabur provides a one-stop solution for deploying the entire stack (Database + API + Web) with automatic HTTPS and zero configuration.
-
-### Why Zeabur?
-
-- ✅ **All-in-One Platform**: Database, Backend, and Frontend in one place
-- ✅ **China-Friendly**: Fast access for users in China
-- ✅ **Monorepo Native**: Built-in support for pnpm workspaces
-- ✅ **Cost-Effective**: ~$10/month for the full stack
-- ✅ **Auto HTTPS**: Free SSL certificates
-- ✅ **Internal Networking**: Services communicate over private network
-
-### Quick Deploy Steps
-
-#### 1. Prerequisites
-
-- A Zeabur account ([sign up here](https://zeabur.com))
-- Your GitHub repository forked or cloned
-
-#### 2. Create a New Project
-
-1. Log in to [Zeabur Dashboard](https://dash.zeabur.com)
-2. Click "Create Project"
-3. Connect your GitHub repository
-
-#### 3. Add PostgreSQL Service
-
-1. In your project, click "Create Service"
-2. Select "PostgreSQL" from the service catalog
-3. Zeabur will automatically provision and start the database
-4. Copy the connection string or use `${postgres.DATABASE_URL}` for variable reference
-
-#### 4. Deploy API Service
-
-1. Click "Create Service" → "Git"
-2. Select your repository and the `apps/api` directory
-3. Configure environment variables:
-   ```bash
-   DATABASE_URL=${postgres.DATABASE_URL}
-   BETTER_AUTH_SECRET=your-secret-32-characters-minimum
-   BETTER_AUTH_URL=https://your-api-domain.zeabur.app
-   NODE_ENV=production
-   PORT=3000
-   FRONTEND_URL=https://your-web-domain.zeabur.app
-   ```
-4. Click "Deploy"
-
-#### 5. Run Database Migrations
-
-From your local machine:
-
-```bash
-# Set the production database URL
-export DATABASE_URL="your-zeabur-postgres-url"
-
-# Run migrations
-cd apps/api
-pnpm drizzle-kit push
-```
-
-Or use Zeabur's Console:
-
-1. Open your API service
-2. Go to "Console" tab
-3. Run: `cd apps/api && pnpm drizzle-kit push`
-
-#### 6. Deploy Web Service
-
-1. Click "Create Service" → "Git"
-2. Select your repository and the `apps/web` directory
-3. Configure environment variables:
-   ```bash
-   VITE_API_URL=https://your-api-domain.zeabur.app
-   ```
-4. Click "Deploy"
-
-#### 7. Custom Domains (Optional)
-
-For each service:
-
-1. Go to service "Settings" → "Domain"
-2. Add your custom domain:
-   - API: `api.yourdomain.com`
-   - Web: `yourdomain.com`
-3. Configure DNS as instructed
-4. HTTPS is automatically configured
-
-### Environment Variables Reference
-
-**API Service:**
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | `${postgres.DATABASE_URL}` |
-| `BETTER_AUTH_SECRET` | Auth encryption key (min 32 chars) | Generate with: `openssl rand -base64 32` |
-| `BETTER_AUTH_URL` | Your API URL | `https://api.yourdomain.com` |
-| `NODE_ENV` | Environment | `production` |
-| `FRONTEND_URL` | Your web URL for CORS | `https://yourdomain.com` |
-| `STRIPE_SECRET_KEY` | Stripe secret key | `sk_live_...` |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | `whsec_...` |
-| `R2_ACCOUNT_ID` | Cloudflare account ID | `abc123...` |
-| `R2_ACCESS_KEY_ID` | R2 API token access key | `...` |
-| `R2_SECRET_ACCESS_KEY` | R2 API token secret key | `...` |
-| `R2_BUCKET_NAME` | R2 bucket name | `my-bucket` |
-| `R2_PUBLIC_URL` | Custom public URL (optional) | `https://cdn.example.com` |
-
-**Web Service:**
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `VITE_API_URL` | Backend API URL | `https://api.yourdomain.com` |
-
-### Monitoring & Logs
-
-Zeabur provides built-in:
-
-- **Real-time Logs**: View application logs in the dashboard
-- **Resource Monitoring**: CPU, memory, and network usage
-- **Auto Restart**: Automatic recovery from crashes
-- **Deployment History**: Easy rollback to previous versions
-
-### Cost Estimate
-
-| Service | Configuration | Monthly Cost |
-|---------|--------------|--------------|
-| PostgreSQL | 1GB storage + auto backup | ~$5 |
-| API Service | 512MB RAM + 0.5 vCPU | ~$5 |
-| Web Service | Static hosting + CDN | Free |
-| **Total** | | **~$10** |
-
-### Troubleshooting
-
-**CORS Issues:**
-- Ensure `FRONTEND_URL` is set correctly in API service
-- Check that your web domain matches exactly (including https://)
-
-**Database Connection:**
-- Use `${postgres.DATABASE_URL}` to reference the internal database
-- Internal networking is faster and more secure
-
-**Build Failures:**
-- Check build logs in Zeabur dashboard
-- Ensure all dependencies are in `package.json`
-- Verify `zeabur.json` configuration
-
-</details>
-
-## ⏳ Task Queue (pg-boss)
-
-This template includes a PostgreSQL-based task queue for background job processing. No Redis or additional infrastructure required.
-
-### Features
-
-- **Retry with backoff** -- Failed jobs are automatically retried
-- **Cron scheduling** -- Schedule recurring jobs (e.g., cleanup, reports)
-- **Priority queues** -- Higher priority jobs are processed first
-- **Concurrency control** -- Limit concurrent job execution
-- **Dead letter queue** -- Failed jobs after max retries are archived
-- **Deduplication** -- Prevent duplicate job submission
-
-### Example: Submit a Background Task
-
-```typescript
-// Backend: enqueue a job from any route handler
-import { getQueue } from "../lib/queue";
-
-const boss = getQueue();
-await boss.send("ai-generation", {
-  taskId: task.id,
-  userId: session.user.id,
-  model: "some-model",
-  prompt: "Generate an image of...",
-});
-```
-
-### Example: Define a Job Handler
-
-```typescript
-// apps/api/src/jobs/my-job.ts
-export function registerMyJob(boss: PgBoss) {
-  boss.work("my-job", { teamConcurrency: 5 }, async (job) => {
-    // Process the job
-    // Throw an error to trigger automatic retry
-  });
-}
-```
-
-### Frontend Task Polling
-
-```typescript
-// Auto-polls until task completes or fails
-const { data: task } = useQuery({
-  queryKey: ["task", taskId],
-  queryFn: () => fetchTask(taskId),
-  refetchInterval: (query) => {
-    const status = query.state.data?.status;
-    if (status === "completed" || status === "failed") return false;
-    return 2000; // Poll every 2 seconds
-  },
-});
-```
-
-For detailed architecture information, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## 📖 Tech Stack Documentation
-
-- [Hono](https://hono.dev/) - Web framework
-- [Drizzle ORM](https://orm.drizzle.team/) - Database ORM
-- [Better Auth](https://www.better-auth.com/) - Authentication
-- [Stripe](https://stripe.com/docs) - Payment processing
-- [TanStack Query](https://tanstack.com/query) - Data fetching
-- [shadcn/ui](https://ui.shadcn.com/) - UI components
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-- [Biome](https://biomejs.dev/) - Linting and formatting
-- [Turborepo](https://turbo.build/) - Monorepo build system
-
-## 📄 License
+| `/health` | GET | Service health with dependency status |
+| `/api/auth/*` | * | Better Auth (login, register, OAuth) |
+| `/api/posts` | GET/POST | Posts CRUD |
+| `/api/checkout` | POST | Credit package checkout |
+| `/api/checkout/subscription` | POST | Subscription checkout |
+| `/api/checkout/manage` | POST | Stripe billing portal |
+| `/api/orders` | GET | Order history (paginated) |
+| `/api/webhooks/stripe` | POST | Stripe webhook handler |
+| `/api/user/me` | GET/PATCH | User profile + credits |
+| `/api/user/usage-history` | GET | Credit usage records |
+| `/api/upload/presign` | POST | R2 presigned upload URL |
+| `/api/chat` | POST | AI chat (streaming SSE + image gen) |
+| `/api/tasks` | POST/GET | Task submission + status |
+| `/api/admin/*` | * | Admin: users, credits, feedback |
+| `/api/referral/*` | * | Referral code, stats, history |
+| `/api/feedback` | POST | User feedback submission |
+
+## Production Deployment
+
+### Zeabur (Recommended)
+
+1. **PostgreSQL**: Add from Zeabur Marketplace
+2. **API**: Deploy `apps/api`, set env vars (use `${postgres.DATABASE_URL}`)
+3. **Web**: Deploy `apps/web`, set `VITE_API_URL`
+4. **Migrations**: Run `pnpm db:push` from API console
+
+**Estimated cost**: ~$10/month (PostgreSQL + API container, Web is static)
+
+### Optional: Monitoring Services
+
+- **Sentry** (Free tier): Set `SENTRY_DSN` + `VITE_SENTRY_DSN`
+- **Uptime Kuma** (~$5/mo on Zeabur): External health monitoring + status page
+- **Slack/Lark webhook**: Set `ALERT_WEBHOOK_URL` for business alerts
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Web Framework | [Hono](https://hono.dev/) |
+| Database | [PostgreSQL](https://www.postgresql.org/) + [Drizzle ORM](https://orm.drizzle.team/) |
+| Auth | [Better Auth](https://www.better-auth.com/) |
+| Payments | [Stripe](https://stripe.com/docs) |
+| Task Queue | [pg-boss](https://github.com/timgit/pg-boss) |
+| AI | [OpenRouter SDK](https://openrouter.ai/docs) |
+| File Storage | [Cloudflare R2](https://developers.cloudflare.com/r2/) |
+| Frontend | [React](https://react.dev/) + [Vite](https://vitejs.dev/) |
+| Data Fetching | [TanStack Query](https://tanstack.com/query) |
+| UI Components | [shadcn/ui](https://ui.shadcn.com/) + [Tailwind CSS](https://tailwindcss.com/) |
+| i18n | [i18next](https://www.i18next.com/) + [react-i18next](https://react.i18next.com/) |
+| Error Tracking | [Sentry](https://sentry.io/) |
+| Logging | [pino](https://getpino.io/) |
+| Email | [Resend](https://resend.com/) |
+| Linting | [Biome](https://biomejs.dev/) |
+| Monorepo | [Turborepo](https://turbo.build/) |
+
+## License
 
 MIT
-
----
-
-Built with ❤️ using modern web technologies
